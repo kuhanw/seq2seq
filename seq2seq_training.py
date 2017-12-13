@@ -87,15 +87,15 @@ test_data = data_formatting.prepare_train_batch(df_all_test['alpha_Pair_0_encodi
 inv_map = {v: k for k, v in vocab_dict.items()}
 inv_map[-1] = 'NULL'
 
-train_model_params = {'n_cells':512, 'num_layers':2, 'embedding_size':1024, 
-          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':32, 'n_threads':128,
+train_model_params = {'n_cells':512, 'num_layers':2, 'embedding_size':2048, 
+          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':128, 'n_threads':128,
           'beam_width':10, 
           'encoder_input_keep':0.7, 'decoder_input_keep':0.7,
           'encoder_output_keep':0.7, 'decoder_output_keep':0.7,
          }
 
-dev_model_params = {'n_cells':512, 'num_layers':2, 'embedding_size':1024, 
-          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':32, 'n_threads':128,
+dev_model_params = {'n_cells':512, 'num_layers':2, 'embedding_size':2048, 
+          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':128, 'n_threads':128,
           'beam_width':10, 
           'encoder_input_keep':1, 'decoder_input_keep':1,
           'encoder_output_keep':1, 'decoder_output_keep':1,

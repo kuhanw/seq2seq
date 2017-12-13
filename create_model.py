@@ -31,6 +31,10 @@ class Model:
         self.encoder_output_keep = params['encoder_output_keep']
 
         self.decoder_output_keep = params['decoder_output_keep']
+        
+        self.encoder_input_keep = params['encoder_input_keep']
+
+        self.decoder_input_keep = params['decoder_input_keep']
 
         if mode == 'train':
 
@@ -71,7 +75,7 @@ class Model:
                                  encoder_length_data.get_shape().as_list()[1:],
                                  decoder_data.get_shape().as_list()[1:],
                                  decoder_length_data.get_shape().as_list()[1:]
-                                ], 
+                                ], seed=0,
                                       min_after_dequeue=self.minibatch_size*100)
                                                                     
         enqueue_op = queue.enqueue_many((encoder_data, encoder_length_data, decoder_data, decoder_length_data))
@@ -99,7 +103,11 @@ class Model:
                                                      average_across_timesteps=True,
                                                      average_across_batch=True)
         
+        self.accuracy = tf.contrib.metrics.accuracy(predictions=tf.to_int32(self.decoder_pred_train),
+                                                    labels=self.decoder_train_targets, 
+                                                    weights=self.masks)
 
+    
     def create_inference_decoder(self):
 
         #if self.beam_width == 1:
@@ -123,16 +131,17 @@ class Model:
                                     memory=self.encoder_outputs,
                                     memory_sequence_length=self.encoder_inputs_length) 
 
-        decoder_cell_list = []
-
+        self.decoder_cell_list = []
+        #At inference time there should be no dropout!
         for layer in range(self.num_layers):
-            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), input_keep_prob=1, 
+            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), 
+                                                             input_keep_prob=self.decoder_input_keep, 
                                                             output_keep_prob=self.decoder_output_keep)
-            decoder_cell_list.append(cell)
+            self.decoder_cell_list.append(cell)
 
         #Last layer of decoders is wrapped in attention
         self.decoder_cell_list[-1] = tf.contrib.seq2seq.AttentionWrapper(
-                                         cell=decoder_cell_list[-1],
+                                         cell=self.decoder_cell_list[-1],
                                          attention_mechanism=self.attention_mechanism,
                                          attention_layer_size=self.n_cells,
                                          initial_cell_state=self.encoder_last_state[-1],                   
@@ -140,11 +149,11 @@ class Model:
        
         self.initial_state = [state for state in self.encoder_last_state]
 
-        self.initial_state[-1] = decoder_cell_list[-1].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
+        self.initial_state[-1] = self.decoder_cell_list[-1].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
 
         self.decoder_initial_state = tuple(self.initial_state)
 
-        decoder_cell = tf.contrib.rnn.MultiRNNCell(decoder_cell_list)
+        self.decoder_cell = tf.contrib.rnn.MultiRNNCell(self.decoder_cell_list)
    
         start_tokens = tf.ones([self.batch_size,], tf.int32) * data_formatting.EOS
 
@@ -157,7 +166,7 @@ class Model:
                                                         embedding=self.embedding_matrix)
 
             # Basic decoder performs greedy decoding at each time step
-            self.inference_decoder = tf.contrib.seq2seq.BasicDecoder(cell=decoder_cell,
+            self.inference_decoder = tf.contrib.seq2seq.BasicDecoder(cell=self.decoder_cell,
                                                  helper=decoding_helper,
                                                  initial_state=self.decoder_initial_state,
                                                  output_layer=self.output_layer)
@@ -189,18 +198,19 @@ class Model:
                                     memory=self.encoder_outputs, 
                                     memory_sequence_length=self.encoder_inputs_length) 
 
-        decoder_cell_list = []
+        self.decoder_cell_list = []
 
         for layer in range(self.num_layers):
-            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), input_keep_prob=1, 
+            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), 
+                                                         input_keep_prob=self.decoder_input_keep, 
                                                             output_keep_prob=self.decoder_output_keep)
-            decoder_cell_list.append(cell)
+            self.decoder_cell_list.append(cell)
 
         self.decoder_initial_state = self.encoder_last_state
         
         #Last layer of decoders is wrapped in attention
-        decoder_cell_list[-1] = tf.contrib.seq2seq.AttentionWrapper(
-                                         cell=decoder_cell_list[-1],
+        self.decoder_cell_list[-1] = tf.contrib.seq2seq.AttentionWrapper(
+                                         cell=self.decoder_cell_list[-1],
                                          attention_mechanism=attention_mechanism,
                                          attention_layer_size=self.n_cells,
                                          initial_cell_state=self.encoder_last_state[-1],                   
@@ -208,18 +218,18 @@ class Model:
         
         initial_state = [state for state in self.encoder_last_state]
 
-        initial_state[-1] = decoder_cell_list[-1].zero_state(batch_size=self.batch_size, dtype=tf.float32)
+        initial_state[-1] = self.decoder_cell_list[-1].zero_state(batch_size=self.batch_size, dtype=tf.float32)
 
         self.decoder_initial_state = tuple(initial_state)
 
-        decoder_cell = tf.contrib.rnn.MultiRNNCell(decoder_cell_list)
+        self.decoder_cell = tf.contrib.rnn.MultiRNNCell(self.decoder_cell_list)
        
         training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=self.decoder_train_inputs_embedded,
                                    sequence_length=self.decoder_train_length,
                                    time_major=False,
                                    name='training_helper')
         
-        training_decoder = tf.contrib.seq2seq.BasicDecoder(cell=decoder_cell,
+        training_decoder = tf.contrib.seq2seq.BasicDecoder(cell=self.decoder_cell,
                                                            helper=training_helper,
                                                            initial_state=self.decoder_initial_state, 
                                                            output_layer=self.output_layer)
@@ -241,17 +251,18 @@ class Model:
     
     def create_encoder(self):
 
-        encoder_cell_list = []
+        self.encoder_cell_list = []
 
         for layer in range(self.num_layers):
-            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), input_keep_prob=1, 
+            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), 
+                                                 input_keep_prob=self.encoder_input_keep, 
                                                     output_keep_prob=self.encoder_output_keep)
-            encoder_cell_list.append(cell)
+            self.encoder_cell_list.append(cell)
 
-        encoder_cell =  tf.contrib.rnn.MultiRNNCell(encoder_cell_list)
+        self.encoder_cell =  tf.contrib.rnn.MultiRNNCell(self.encoder_cell_list)
         
         self.encoder_outputs, self.encoder_last_state = tf.nn.dynamic_rnn(
-                                                cell=encoder_cell, inputs=self.encoder_inputs_embedded,
+                                                cell=self.encoder_cell, inputs=self.encoder_inputs_embedded,
                                                 sequence_length=self.encoder_inputs_length, dtype=tf.float32,
                                                 time_major=False)
         
@@ -297,17 +308,17 @@ class Model:
             self.max_decoder_length = tf.shape(self.decoder_train_targets)[1]
                                                                                               
     def create_embeddings(self):
-        
+
         self.initializer = tf.random_uniform_initializer(-math.sqrt(3), math.sqrt(3))
 
         #Randomly initialize a embedding vector for each term in the vocabulary
         self.embedding_matrix = tf.get_variable(name='embedding_matrix', shape=[self.vocab_size, self.embedding_size],
-                                           initializer=self.initializer, 
-                                           dtype=tf.float32)
-        
+                                                initializer=self.initializer, 
+                                                dtype=tf.float32)
+
         #Map each input unit to a column in the embedding matrix
         self.encoder_inputs_embedded = tf.nn.embedding_lookup(self.embedding_matrix, self.encoder_inputs)
-        
+
         if self.mode == 'train':
-            
+
             self.decoder_train_inputs_embedded = tf.nn.embedding_lookup(self.embedding_matrix, self.decoder_train_inputs)

@@ -55,12 +55,12 @@ dataset = 'twitter'
 #df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_19_sample_21946_lem.pkl')
 
 vocab_dict = pickle.load(open('../processed_data/word_dict_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl', 'rb'))
-df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full_encoded.pkl')
+df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl')
 
-#df_all['alpha_Pair_1_encoding'] =  df_all['alpha_Pair_1_tokens'].apply(encodeSent)
-#df_all['alpha_Pair_0_encoding'] = df_all['alpha_Pair_0_tokens'].apply(encodeSent)
+df_all['alpha_Pair_1_encoding'] =  df_all['alpha_Pair_1_tokens'].apply(encodeSent)
+df_all['alpha_Pair_0_encoding'] = df_all['alpha_Pair_0_tokens'].apply(encodeSent)
 
-#df_all['Index'] = df_all.index.values
+df_all['Index'] = df_all.index.values
 #df_all.to_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full_encoded.pkl')
 
 df_all_train = df_all.sample(frac=0.97, random_state=1)

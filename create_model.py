@@ -47,7 +47,7 @@ class Model:
         
         if mode == 'infer':
             
-            self.create_queue(sequence_data)
+            #self.create_queue(sequence_data)
             self.initialize_placeholders()
             self.create_embeddings()
             self.create_encoder()
@@ -271,11 +271,12 @@ class Model:
     def initialize_placeholders(self):
             
         #Create handles for encoder and decoders
-       # self.encoder_inputs = tf.placeholder(shape=(None, None),
-        #                dtype=tf.int32, name='encoder_inputs')
+        if self.mode == 'infer':
+            self.encoder_inputs = tf.placeholder(shape=(None, None),
+                        dtype=tf.int32, name='encoder_inputs')
 
-       # self.encoder_inputs_length = tf.placeholder(shape=(None,),
-        #                dtype=tf.int32, name='encoder_inputs_length')
+            self.encoder_inputs_length = tf.placeholder(shape=(None,),
+                        dtype=tf.int32, name='encoder_inputs_length')
 
         self.output_layer = Dense(self.vocab_size, name='output_projection')
 
@@ -283,7 +284,7 @@ class Model:
 
         if self.mode == 'train':
                 
-                # required for training, not required for testing
+            # required for training, not required for testing
             #self.decoder_targets = tf.placeholder(shape=(None, None),
             #                dtype=tf.int32, name='decoder_targets')
 

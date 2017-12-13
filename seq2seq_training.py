@@ -160,6 +160,8 @@ with tf.Session() as session:
     threads = tf.train.start_queue_runners(coord=coord)
 
     if chkpt_path is not None:
+        print ('restoring from chkpt %s' % chkpt_path)
+        print ('latest checkpoint %s' %  tf.train.latest_checkpoint(chkpt_path)) 
         saver.restore(session, tf.train.latest_checkpoint(chkpt_path))
 
 
@@ -203,7 +205,7 @@ with tf.Session() as session:
 
             print ('Epoch:%d finished, time:%.4g' % (epoch, time.time() - start_time))
 
-        if (epoch % save_interval == 0):# & (epoch!=0): 
+        if (epoch % save_interval == 0) & (epoch!=0): 
 
             saver.save(session, save_path + '/seq2seq_%s' % dataset, global_step = tf.train.global_step(session, global_step))
 

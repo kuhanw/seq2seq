@@ -138,7 +138,7 @@ optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 train_op = optimizer.minimize(train_model.loss, global_step=global_step)
 
 print_interval = 100
-save_interval = 1000
+save_interval = 2000
 
 lr = 0.001
 

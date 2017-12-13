@@ -55,14 +55,13 @@ dataset = 'twitter'
 #df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_19_sample_21946_lem.pkl')
 
 vocab_dict = pickle.load(open('../processed_data/word_dict_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl', 'rb'))
-df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl')
+df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full_encoded.pkl')
 
+#df_all['alpha_Pair_1_encoding'] =  df_all['alpha_Pair_1_tokens'].apply(encodeSent)
+#df_all['alpha_Pair_0_encoding'] = df_all['alpha_Pair_0_tokens'].apply(encodeSent)
 
-df_all['alpha_Pair_1_encoding'] =  df_all['alpha_Pair_1_tokens'].apply(encodeSent)
-df_all['alpha_Pair_0_encoding'] = df_all['alpha_Pair_0_tokens'].apply(encodeSent)
-
-df_all['Index'] = df_all.index.values
-
+#df_all['Index'] = df_all.index.values
+#df_all.to_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full_encoded.pkl')
 
 df_all_train = df_all.sample(frac=0.97, random_state=1)
 
@@ -88,14 +87,14 @@ test_data = data_formatting.prepare_train_batch(df_all_test['alpha_Pair_0_encodi
 inv_map = {v: k for k, v in vocab_dict.items()}
 inv_map[-1] = 'NULL'
 
-train_model_params = {'n_cells':256, 'num_layers':2, 'embedding_size':1024, 
+train_model_params = {'n_cells':512, 'num_layers':2, 'embedding_size':1024, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':32, 'n_threads':128,
           'beam_width':10, 
           'encoder_input_keep':0.7, 'decoder_input_keep':0.7,
           'encoder_output_keep':0.7, 'decoder_output_keep':0.7,
          }
 
-dev_model_params = {'n_cells':256, 'num_layers':2, 'embedding_size':1024, 
+dev_model_params = {'n_cells':512, 'num_layers':2, 'embedding_size':1024, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':32, 'n_threads':128,
           'beam_width':10, 
           'encoder_input_keep':1, 'decoder_input_keep':1,

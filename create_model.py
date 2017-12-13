@@ -54,12 +54,12 @@ class Model:
             self.create_inference_decoder()
 
     def create_queue(self, training_data):
-        
-        encoder_data = tf.convert_to_tensor(np.asarray(training_data[0]))
-        encoder_length_data = tf.convert_to_tensor(np.asarray(training_data[1]))
+                
+        encoder_data = tf.convert_to_tensor(tf.cast(np.asarray(training_data[0]), tf.int32))
+        encoder_length_data = tf.convert_to_tensor(tf.cast(np.asarray(training_data[1]), tf.int32))
 
-        decoder_data = tf.convert_to_tensor(np.asarray(training_data[2]))
-        decoder_length_data = tf.convert_to_tensor(np.asarray(training_data[3]))
+        decoder_data = tf.convert_to_tensor(tf.cast(np.asarray(training_data[2]), tf.int32))
+        decoder_length_data = tf.convert_to_tensor(tf.cast(np.asarray(training_data[3]), tf.int32))
         
         # Note that the FIFO queue has still a capacity of 3
         #queue = tf.FIFOQueue(capacity=10, dtypes=[tf.int32, tf.int32, tf.int32, tf.int32], 

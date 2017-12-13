@@ -13,14 +13,20 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Train a seq2seq model.')
 
-parser.add_argument(
-        '-s', '--save', type = str, help = 'path to save output files.', required = True)
-parser.add_argument(
-        '-r', '--restore', type = str, help = 'Input session file to restore from.', required = False)
+parser.add_argument('-s', '--save', type = str, help = 'path to save output files.', required = True)
+parser.add_argument('-r', '--restore', type = str, help = 'path to chkpt files.', required = False)
+parser.add_argument('-cells', '--cells', type = int, help = 'Number of Hidden units.', required = True)
+parser.add_argument('-n_layers', '--n_layers', type = int, help = 'Number of hidden layers.', required = True)
+parser.add_argument('-n_embedding', '--n_embedding', type = int, help = 'Dimensionality of word embedding.', required = True)
+parser.add_argument('-dropout', '--dropout', type = float, help = 'Probability of dropout, set to 1 to remove.', required = True)
+parser.add_argument('-beam_length', '--beam_length', type = int, help = 'Length of beam at inference time, set to 1 to remove.', required = True)
+parser.add_argument('-minibatch_size', '--minibatch_size', type = int, help = 'Size of minibatch during training.', required = True)
 
 args = parser.parse_args()
 
-restore_session = args.restore
+print (args)
+
+chkpt_path = args.restore
 save_path = args.save
 
 def encodeSent(sent):
@@ -61,12 +67,6 @@ def validate(train):
 
 dataset = 'twitter'
 
-#vocab_dict = pickle.load(open('../processed_data/word_dict_v02_twitter_py35_seq_length_4_15_sample_134241_full.pkl', 'rb'))
-#df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_4_15_sample_134241_full.pkl')
-
-#vocab_dict = pickle.load(open('../processed_data/word_dict_v02_twitter_py35_seq_length_3_19_sample_21946_lem.pkl', 'rb'))
-#df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_19_sample_21946_lem.pkl')
-
 vocab_dict = pickle.load(open('../processed_data/word_dict_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl', 'rb'))
 df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl')
 
@@ -74,7 +74,6 @@ df_all['alpha_Pair_1_encoding'] =  df_all['alpha_Pair_1_tokens'].apply(encodeSen
 df_all['alpha_Pair_0_encoding'] = df_all['alpha_Pair_0_tokens'].apply(encodeSent)
 
 df_all['Index'] = df_all.index.values
-#df_all.to_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full_encoded.pkl')
 
 df_all_train = df_all.sample(frac=0.97, random_state=1)
 
@@ -100,30 +99,16 @@ test_data = data_formatting.prepare_train_batch(df_all_test['alpha_Pair_0_encodi
 inv_map = {v: k for k, v in vocab_dict.items()}
 inv_map[-1] = 'NULL'
 
-#train_model_params = {'n_cells':512, 'num_layers':2, 'embedding_size':2048, 
-#          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':128, 'n_threads':128,
-#          'beam_width':10, 
-#          'encoder_input_keep':0.7, 'decoder_input_keep':0.7,
-#          'encoder_output_keep':0.7, 'decoder_output_keep':0.7,
-#         }
-
-#dev_model_params = {'n_cells':512, 'num_layers':2, 'embedding_size':2048, 
-#          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':128, 'n_threads':128,
-#          'beam_width':10, 
-#          'encoder_input_keep':1, 'decoder_input_keep':1,
-#          'encoder_output_keep':1, 'decoder_output_keep':1,
-#         }
-
-train_model_params = {'n_cells':256, 'num_layers':2, 'embedding_size':512, 
-          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':32, 'n_threads':128,
-          'beam_width':10, 
-          'encoder_input_keep':0.7, 'decoder_input_keep':0.7,
-          'encoder_output_keep':0.7, 'decoder_output_keep':0.7,
+train_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
+          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
+          'beam_width':args.beam_length, 
+          'encoder_input_keep':args.dropout, 'decoder_input_keep':args.dropout,
+          'encoder_output_keep':args.dropout, 'decoder_output_keep':args.dropout,
          }
 
-dev_model_params = {'n_cells':256, 'num_layers':2, 'embedding_size':512, 
-          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':32, 'n_threads':128,
-          'beam_width':10, 
+dev_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
+          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
+          'beam_width':args.beam_length, 
           'encoder_input_keep':1, 'decoder_input_keep':1,
           'encoder_output_keep':1, 'decoder_output_keep':1,
          }
@@ -174,8 +159,8 @@ with tf.Session() as session:
 
     threads = tf.train.start_queue_runners(coord=coord)
 
-    if restore_session is not None:
-        saver.restore(session, session_path)
+    if chkpt_path is not None:
+        saver.restore(session, tf.train.latest_checkpoint(chkpt_path))
 
 
     for epoch in range(training_params['n_epochs']):

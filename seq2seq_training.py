@@ -22,12 +22,18 @@ parser.add_argument('-dropout', '--dropout', type = float, help = 'Probability o
 parser.add_argument('-beam_length', '--beam_length', type = int, help = 'Length of beam at inference time, set to 1 to remove.', required = True)
 parser.add_argument('-minibatch_size', '--minibatch_size', type = int, help = 'Size of minibatch during training.', required = True)
 
+parser.add_argument('-vocab', '--vocab', type = str, help = 'Path to vocabulary pickle file.', required = True)
+
+parser.add_argument('-data', '--data', type = str, help = 'Path to dataset pickle file for training/testing.', required = True)
+
 args = parser.parse_args()
 
 print (args)
 
 chkpt_path = args.restore
 save_path = args.save
+vocab_path = args.vocab
+data_path = args.data
 
 def encodeSent(sent):
 
@@ -67,15 +73,10 @@ def validate(train):
 
 dataset = 'twitter'
 
-vocab_dict = pickle.load(open('../processed_data/word_dict_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl', 'rb'))
-df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl')
+vocab_dict = pickle.load(open(vocab_path, 'rb'))
+df_all = pd.read_pickle(data_path)
 
-df_all['alpha_Pair_1_encoding'] =  df_all['alpha_Pair_1_tokens'].apply(encodeSent)
-df_all['alpha_Pair_0_encoding'] = df_all['alpha_Pair_0_tokens'].apply(encodeSent)
-
-df_all['Index'] = df_all.index.values
-
-df_all_train = df_all.sample(frac=0.97, random_state=1)
+df_all_train = df_all.sample(frac=0.96, random_state=1)
 
 df_all_dev = df_all[df_all['Index'].isin(df_all_train['Index'].values) == False]
 

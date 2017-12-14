@@ -11,22 +11,23 @@ wordnet_lemmatizer = WordNetLemmatizer()
 lancaster_stemmer = LancasterStemmer()
 
 #df_all_word_counts = pd.read_pickle('EN-DE_word_occurrence_sample_2281331.pkl')
-df_all_word_counts = pd.read_pickle('twitter_word_occurrence_sample_377265.pkl')
+#df_all_word_counts = pd.read_pickle('twitter_word_occurrence_sample_377265.pkl')
+#df_all_word_counts = pd.read_pickle('twitter_word_occurrence_sample_377265_lem.pkl')
+df_all_word_counts = pd.read_pickle('twitter_word_occurrence_sample_2601244_lem.pkl')
+#df_all_word_counts = pd.read_pickle('twitter_word_occurrence_sample_333769_lem_questions.pkl')
 
-once_words = set(df_all_word_counts[df_all_word_counts['word_counts']==1]['word'].values)
-twice_words = set(df_all_word_counts[df_all_word_counts['word_counts']==2]['word'].values)
-thrice_words = set(df_all_word_counts[df_all_word_counts['word_counts']==3]['word'].values)
-quad_words = set(df_all_word_counts[df_all_word_counts['word_counts']==4]['word'].values)
-quint_words = set(df_all_word_counts[df_all_word_counts['word_counts']==5]['word'].values)
-sext_words = set(df_all_word_counts[df_all_word_counts['word_counts']==6]['word'].values)
-sept_words = set(df_all_word_counts[df_all_word_counts['word_counts']==7]['word'].values)
-oct_words = set(df_all_word_counts[df_all_word_counts['word_counts']==8]['word'].values)
-nine_words = set(df_all_word_counts[df_all_word_counts['word_counts']==9]['word'].values)
-ten_words = set(df_all_word_counts[df_all_word_counts['word_counts']==10]['word'].values)
+word_sets = [set(df_all_word_counts[df_all_word_counts['word_counts']==i]['word'].values) for i in range(1, 22, 1)]
+
+
+def checkWordOccurrence(x, occurence):
+    return set(x) & word_sets[occurence]
+
+def checkWordOccurrenceLength(x, occurence):
+    return len(set(x) & word_sets[occurence])
 
 def checkChars(x):
     
-    return re.sub(r'([^\s\w.?!]|_)+', r' ', x).lower()
+    return re.sub(r'([^\s\w.?!]|_)+', r' ', x).lower() #What does this do again?
 
 def remove_non_ascii(text):
 
@@ -35,10 +36,6 @@ def remove_non_ascii(text):
 def appendEOS(x):
 
     return x + ['<EOS>']
-
-def checkWord(x):
-    
-    return 'performancedriven' in x
 
 def countTokens(x): 
     
@@ -76,33 +73,3 @@ def createDict(word, count):
     
 def makeSet(x):
     return set(x)
-
-def checkOnceWord(x):
-    return len(set(x) & once_words)
-
-def checkTwiceWord(x):
-    return len(set(x) & twice_words)
-
-def checkThriceWord(x):
-    return len(set(x) & thrice_words)
-
-def checkQuadWord(x):
-    return len(set(x) & quad_words)
-
-def checkQuintWord(x):
-    return len(set(x) & quint_words)
-
-def checkSextWord(x):
-    return len(set(x) & sext_words)
-
-def checkSeptWord(x):
-    return len(set(x) & sept_words)
-
-def checkOctWord(x):
-    return len(set(x) & oct_words)
-
-def checkNineWord(x):
-    return len(set(x) & nine_words)
-
-def checkTenWord(x):
-    return len(set(x) & ten_words)

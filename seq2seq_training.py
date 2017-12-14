@@ -142,14 +142,7 @@ save_interval = 2000
 
 lr = 0.001
 
-train_loss = []
-dev_loss = []
-
-train_accuracy = []
-dev_accuracy = []
-
-learning_rate = []
-
+metrics = []
 with tf.Session() as session:
 
     session.run(tf.global_variables_initializer())
@@ -181,9 +174,6 @@ with tf.Session() as session:
             train_minibatch_loss,  train_minibatch_accuracy = session.run([train_model.loss, train_model.accuracy], 
                                                                           feed_dict={'starter_learning_rate:0':lr})
 
-            train_loss.append([tf.train.global_step(session, global_step), train_minibatch_loss])  
-            train_accuracy.append([tf.train.global_step(session, global_step), train_minibatch_accuracy])  
-
             print ('training minibatch loss:%.6g' % (train_minibatch_loss))
             print ('training minibatch accuracy:%.6g' % (train_minibatch_accuracy))
 
@@ -194,19 +184,19 @@ with tf.Session() as session:
             print ('dev minibatch loss:%.6g' %  (dev_model_loss))
             print ('dev minibatch accuracy:%.6g' %  (dev_model_accuracy))
 
-            dev_loss.append([tf.train.global_step(session, global_step), dev_model_loss])
-
-            dev_accuracy.append([tf.train.global_step(session, global_step), dev_model_accuracy])
-
-            learning_rate.append([tf.train.global_step(session, global_step), 
-                                  session.run(optimizer._lr, feed_dict={'starter_learning_rate:0':lr})])
-
             validate(train=False)
+            
+            metrics.append([tf.train.global_step(session, global_step), train_minibatch_loss, train_minibatch_accuracy,
+						dev_model_loss, dev_model_accuracy, session.run(optimizer._lr, feed_dict={'starter_learning_rate:0':lr})])  
 
             print ('Epoch:%d finished, time:%.4g' % (epoch, time.time() - start_time))
 
         if (epoch % save_interval == 0) & (epoch!=0): 
 
+            df_metrics = pd.DataFrame(metrics, columns=['Global Step','Train Loss', 'Train Accuracy', 'Dev Loss', 'Dev Accuracy', 
+										'Learning Rate'])
+            df_metrics.to_csv(save_path + '/training_metrics_%s.csv' % tf.train.global_step(session, global_step))
+            
             saver.save(session, save_path + '/seq2seq_%s' % dataset, global_step = tf.train.global_step(session, global_step))
 
             print ('Session saved')

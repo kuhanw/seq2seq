@@ -20,27 +20,21 @@ class Model:
         if self.mode == 'train' and sequence_data is None:
             print ('Must provide sequence data for training!')
         
-
         self.n_cells = params['n_cells']
         self.num_layers = params['num_layers']
         self.embedding_size = params['embedding_size']
-       
         self.vocab_size = params['vocab_size']
-        self.n_threads = params['n_threads']
-        
-        self.minibatch_size = params['minibatch_size']
-        
         self.beam_width = params['beam_width']
         self.limit_decode_steps = params['limit_decode_steps']
-        self.encoder_output_keep = params['encoder_output_keep']
-
-        self.decoder_output_keep = params['decoder_output_keep']
-        
-        self.encoder_input_keep = params['encoder_input_keep']
-
-        self.decoder_input_keep = params['decoder_input_keep']
 
         if self.mode == 'train':
+            
+            self.minibatch_size = params['minibatch_size']
+            self.n_threads = params['n_threads']
+            self.encoder_output_keep = params['encoder_output_keep']
+            self.decoder_output_keep = params['decoder_output_keep']
+            self.encoder_input_keep = params['encoder_input_keep']
+            self.decoder_input_keep = params['decoder_input_keep']
 
             self.create_queue(sequence_data)
             self.initialize_placeholders()
@@ -50,6 +44,11 @@ class Model:
             self.create_training_module()            
         
         if self.mode == 'infer':
+            
+            self.encoder_output_keep = 1
+            self.decoder_output_keep = 1
+            self.encoder_input_keep = 1
+            self.decoder_input_keep = 1
             
             #self.create_queue(sequence_data)
             self.initialize_placeholders()
@@ -65,7 +64,6 @@ class Model:
         decoder_data = tf.convert_to_tensor(tf.cast(np.asarray(training_data[2]), tf.int32))
         decoder_length_data = tf.convert_to_tensor(tf.cast(np.asarray(training_data[3]), tf.int32))
         
-        # Note that the FIFO queue has still a capacity of 3
         #queue = tf.FIFOQueue(capacity=10, dtypes=[tf.int32, tf.int32, tf.int32, tf.int32], 
         #            shapes=[self.encoder_data.get_shape().as_list()[1:],
         #                         self.encoder_length_data.get_shape().as_list()[1:],
@@ -195,8 +193,10 @@ class Model:
                     maximum_iterations=max_decode_step))
            
         if self.beam_width>1:
-            self.decoder_pred_decode = self.decoder_outputs_decode.predicted_ids
+#            with variable_scope
+            self.decoder_pred_decode = tf.identity(self.decoder_outputs_decode.predicted_ids, name='decoder_pred_decode')
         else:
+#            with variable_scope
             self.decoder_pred_decode = tf.argmax(self.decoder_outputs_decode.rnn_output, axis=-1, name='decoder_pred_decode')
 
 

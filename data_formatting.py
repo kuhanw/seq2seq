@@ -18,7 +18,6 @@ def generateRandomSeqBatchMajor(length_from, length_to, vocab_lower, vocab_upper
                 for batch in range(batch_size)]
 
 def createInvMap(vocab_dict):
-
     inv_map = {v: k for k, v in vocab_dict.items()}
     inv_map[-1] = 'NULL'
 

@@ -1,12 +1,4 @@
-
-# coding: utf-8
-
-# In[1]:
-
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
+#!/usr/bin/env python
 import tensorflow as tf
 import pandas as pd
 import numpy as np 
@@ -44,19 +36,14 @@ def validate(train):
     for i, (e_in, dt_targ, dt_pred) in enumerate(zip( encoder, decoder, predicted)):
 
         print('  sample {}:'.format(i + 1))
-        #print('    enc input           > {}'.format(e_in))
+
         print('    enc input           > {}'.format(decodeSent(e_in)))
 
-        #print('    dec input           > {}'.format(dt_targ))
         print('    dec input           > {}'.format(decodeSent(dt_targ)))
 
-        #print('    dec train predicted > {}'.format(dt_pred))
         print('    dec train predicted > {}'.format(decodeSent(dt_pred)))
 
         if i >= 0: break
-
-
-# In[2]:
 
 
 dataset = 'twitter'
@@ -71,16 +58,10 @@ vocab_dict = pickle.load(open('../processed_data/word_dict_v02_twitter_py35_seq_
 df_all = pd.read_pickle('../processed_data/processed_data_v02_twitter_py35_seq_length_3_25_sample_1901567_full.pkl')
 
 
-# In[3]:
-
-
 df_all['alpha_Pair_1_encoding'] =  df_all['alpha_Pair_1_tokens'].apply(encodeSent)
 df_all['alpha_Pair_0_encoding'] = df_all['alpha_Pair_0_tokens'].apply(encodeSent)
 
 df_all['Index'] = df_all.index.values
-
-
-# In[4]:
 
 
 df_all_train = df_all.sample(frac=0.97, random_state=1)
@@ -92,13 +73,7 @@ df_all_test = df_all_dev.sample(frac=0.10, random_state=1)
 df_all_dev = df_all_dev[df_all_dev['Index'].isin(df_all_test['Index'].values) == False]
 
 
-# In[5]:
-
-
 print (df_all.shape[0], df_all_train.shape[0],  df_all_dev.shape[0], df_all_test.shape[0], len(vocab_dict))
-
-
-# In[6]:
 
 
 train_data = data_formatting.prepare_train_batch(df_all_train['alpha_Pair_0_encoding'].values, 
@@ -110,16 +85,8 @@ dev_data = data_formatting.prepare_train_batch(df_all_dev['alpha_Pair_0_encoding
 test_data = data_formatting.prepare_train_batch(df_all_test['alpha_Pair_0_encoding'].values, 
                                                     df_all_test['alpha_Pair_1_encoding'].values)
 
-
-# In[8]:
-
-
 inv_map = {v: k for k, v in vocab_dict.items()}
 inv_map[-1] = 'NULL'
-
-
-# In[9]:
-
 
 train_model_params = {'n_cells':256, 'num_layers':2, 'embedding_size':1024, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':32, 'n_threads':128,
@@ -127,10 +94,6 @@ train_model_params = {'n_cells':256, 'num_layers':2, 'embedding_size':1024,
           'encoder_input_keep':0.7, 'decoder_input_keep':0.7,
           'encoder_output_keep':0.7, 'decoder_output_keep':0.7,
          }
-
-
-# In[10]:
-
 
 dev_model_params = {'n_cells':256, 'num_layers':2, 'embedding_size':1024, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':32, 'n_threads':128,
@@ -140,20 +103,10 @@ dev_model_params = {'n_cells':256, 'num_layers':2, 'embedding_size':1024,
          }
 
 
-# In[11]:
-
-
 training_params = { 'vocab_lower':3, 'vocab_upper':train_model_params['vocab_size']-1, 
                     'n_epochs':5000000}
 
-
-# In[12]:
-
-
 tf.reset_default_graph()
-
-
-# In[13]:
 
 
 with tf.variable_scope('training_model'):
@@ -164,10 +117,6 @@ with tf.variable_scope('training_model', reuse=True):
 
     dev_model = create_model.Model(dev_model_params, 'train', dev_data)    
 
-
-# In[ ]:
-
-
 global_step = tf.Variable(0, trainable=False)
 
 starter_learning_rate = tf.placeholder(tf.float32, shape=(), name='starter_learning_rate')
@@ -177,10 +126,6 @@ learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,  
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
 train_op = optimizer.minimize(train_model.loss, global_step=global_step)
-
-
-# In[ ]:
-
 
 print_interval = 100
 save_interval = 1000
@@ -246,14 +191,15 @@ with tf.Session() as session:
 
             print ('Epoch:%d finished, time:%.4g' % (epoch, time.time() - start_time))
 
-        if (epoch % save_interval == 0) & (epoch!=0): 
+        if (epoch % save_interval == 0):# & (epoch!=0): 
 
-            saver.save(session, 'chkpt/seq2seq_twitter', global_step = tf.train.global_step(session, global_step))
+            saver.save(session, '../chkpt/seq2seq_twitter_testing', global_step = tf.train.global_step(session, global_step))
 
             print ('Session saved')
 
     coord.request_stop()
     coord.join(threads)
 
-session.close()        
+session.close()
+
 

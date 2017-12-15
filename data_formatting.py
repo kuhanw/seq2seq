@@ -5,10 +5,27 @@ PAD = 0
 EOS = 1
 UNK = 2
 
+def encodeSent(sent, vocab_dict):
+
+    if type(sent) == str: sent = sent.split(' ')
+    
+    return [vocab_dict[word] if word in vocab_dict else 2 for word in sent]
+
+
 def generateRandomSeqBatchMajor(length_from, length_to, vocab_lower, vocab_upper, batch_size):
     return [
             [random.randint(vocab_lower, vocab_upper-2) for digit in range(random.randint(length_from, length_to))] + [1]
                 for batch in range(batch_size)]
+
+def createInvMap(vocab_dict):
+
+    inv_map = {v: k for k, v in vocab_dict.items()}
+    inv_map[-1] = 'NULL'
+
+    return inv_map
+
+def decodeSent(sent, inv_map):
+    return [inv_map[i] for i in sent if i not in [0, -1]]
 
 def prepare_batch(seqs_x, maxlen=None):
     # seqs_x: a list of sentences

@@ -12,10 +12,14 @@ import numpy as np
 
 class Model:
     
-    def __init__(self, params, mode, sequence_data):
+    def __init__(self, params, mode, sequence_data=None):
 
         self.params = params
         self.mode = mode
+
+        if self.mode == 'train' and sequence_data is None:
+            print ('Must provide sequence data for training!')
+        
 
         self.n_cells = params['n_cells']
         self.num_layers = params['num_layers']
@@ -36,7 +40,7 @@ class Model:
 
         self.decoder_input_keep = params['decoder_input_keep']
 
-        if mode == 'train':
+        if self.mode == 'train':
 
             self.create_queue(sequence_data)
             self.initialize_placeholders()
@@ -45,7 +49,7 @@ class Model:
             self.create_training_decoder()
             self.create_training_module()            
         
-        if mode == 'infer':
+        if self.mode == 'infer':
             
             #self.create_queue(sequence_data)
             self.initialize_placeholders()

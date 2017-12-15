@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description='Train a seq2seq model.')
 parser.add_argument('-s', '--save', type = str, help = 'path to save output files.', required = True)
 parser.add_argument('-r', '--restore', type = str, help = 'path to chkpt files.', required = False)
 parser.add_argument('-cells', '--cells', type = int, help = 'Number of Hidden units.', required = True)
-parser.add_argument('-n_layers', '--n_layers', type = int, help = 'Number of hidden layers.', required = True)
+parser.add_argument('-n_layers', '--n_layers', type = int, help = 'Number of LSTM layers.', required = True)
 parser.add_argument('-n_embedding', '--n_embedding', type = int, help = 'Dimensionality of word embedding.', required = True)
 parser.add_argument('-dropout', '--dropout', type = float, help = 'Probability of dropout, set to 1 to remove.', required = True)
 parser.add_argument('-beam_length', '--beam_length', type = int, help = 'Length of beam at inference time, set to 1 to remove.', required = True)
@@ -34,15 +34,6 @@ chkpt_path = args.restore
 save_path = args.save
 vocab_path = args.vocab
 data_path = args.data
-
-def encodeSent(sent):
-
-    if type(sent) == str: sent = sent.split(' ')
-    
-    return [vocab_dict[word] if word in vocab_dict else 2 for word in sent]
-
-def decodeSent(sent):
-    return [inv_map[i] for i in sent if i not in [0, -1]]
 
 def validate(train):
     
@@ -62,11 +53,11 @@ def validate(train):
 
         print('  sample {}:'.format(i + 1))
 
-        print('    enc input           > {}'.format(decodeSent(e_in)))
+        print('    enc input           > {}'.format(data_formatting.decodeSent(e_in, inv_map)))
 
-        print('    dec input           > {}'.format(decodeSent(dt_targ)))
+        print('    dec input           > {}'.format(data_formatting.decodeSent(dt_targ, inv_map)))
 
-        print('    dec train predicted > {}'.format(decodeSent(dt_pred)))
+        print('    dec train predicted > {}'.format(data_formatting.decodeSent(dt_pred, inv_map)))
 
         if i >= 0: break
 
@@ -96,9 +87,7 @@ dev_data = data_formatting.prepare_train_batch(df_all_dev['alpha_Pair_0_encoding
 
 test_data = data_formatting.prepare_train_batch(df_all_test['alpha_Pair_0_encoding'].values, 
                                                     df_all_test['alpha_Pair_1_encoding'].values)
-
-inv_map = {v: k for k, v in vocab_dict.items()}
-inv_map[-1] = 'NULL'
+inv_map = data_formatting.createInvMap(vocab_dict)
 
 train_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
@@ -132,7 +121,7 @@ global_step = tf.Variable(0, trainable=False)
 
 starter_learning_rate = tf.placeholder(tf.float32, shape=(), name='starter_learning_rate')
 
-learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,                                    10000, 0.96, staircase=False)
+learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 10000, 0.96, staircase=False)
 
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 

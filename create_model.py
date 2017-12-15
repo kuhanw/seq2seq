@@ -31,7 +31,7 @@ class Model:
         self.minibatch_size = params['minibatch_size']
         
         self.beam_width = params['beam_width']
-        
+        self.limit_decode_steps = params['limit_decode_steps']
         self.encoder_output_keep = params['encoder_output_keep']
 
         self.decoder_output_keep = params['decoder_output_keep']
@@ -183,8 +183,10 @@ class Model:
                                                                            initial_state=self.decoder_initial_state,
                                                                            beam_width=self.beam_width,
                                                                            output_layer=self.output_layer)
-
-        max_decode_step = tf.reduce_max(self.encoder_inputs_length) + 3
+        if self.limit_decode_steps == True:
+            max_decode_step = tf.reduce_max(self.encoder_inputs_length) + 5
+        else:
+            max_decode_step = None
 
         (self.decoder_outputs_decode, self.decoder_last_state_decode,
                  self.decoder_outputs_length_decode) = (tf.contrib.seq2seq.dynamic_decode(
@@ -192,7 +194,11 @@ class Model:
                     output_time_major=False,
                     maximum_iterations=max_decode_step))
            
-        self.decoder_pred_decode = self.decoder_outputs_decode.predicted_ids
+        if self.beam_width>1:
+            self.decoder_pred_decode = self.decoder_outputs_decode.predicted_ids
+        else:
+            self.decoder_pred_decode = tf.argmax(self.decoder_outputs_decode.rnn_output, axis=-1, name='decoder_pred_decode')
+
 
             
     def create_training_decoder(self):

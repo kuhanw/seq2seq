@@ -30,7 +30,7 @@ inv_map = data_formatting.createInvMap(vocab_dict)
 
 encoder_input = data_formatting.encodeSent(args.input, vocab_dict)
 
-dev_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
+inf_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
           'beam_width':args.beam_length, 
           'encoder_input_keep':1, 'decoder_input_keep':1,
@@ -41,7 +41,7 @@ tf.reset_default_graph()
 
 with tf.variable_scope('training_model'):
 
-    inf_model = create_model.Model(dev_model_params, 'infer')
+    inf_model = create_model.Model(inf_model_params, 'infer', None)
 
 with tf.Session() as session:
     

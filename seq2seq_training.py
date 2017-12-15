@@ -21,7 +21,7 @@ parser.add_argument('-n_embedding', '--n_embedding', type = int, help = 'Dimensi
 parser.add_argument('-dropout', '--dropout', type = float, help = 'Probability of dropout, set to 1 to remove.', required = True)
 parser.add_argument('-beam_length', '--beam_length', type = int, help = 'Length of beam at inference time, set to 1 to remove.', required = True)
 parser.add_argument('-minibatch_size', '--minibatch_size', type = int, help = 'Size of minibatch during training.', required = True)
-parser.add_argument('-limit_decode_steps', '--limit_decode_steps', type = bool, help = 'Limit the number of decoding steps to 5.', required = True)
+parser.add_argument('-limit_decode_steps', '--limit_decode_steps', type = bool, help = 'Limit the number of decoding steps to 5.', required = False)
 
 parser.add_argument('-vocab', '--vocab', type = str, help = 'Path to vocabulary pickle file.', required = True)
 
@@ -92,14 +92,14 @@ inv_map = data_formatting.createInvMap(vocab_dict)
 
 train_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
-          'beam_width':args.beam_length, 'limit_decode_steps':args.limit_decode_steps,
+          'beam_width':args.beam_length, 'limit_decode_steps':None,
           'encoder_input_keep':args.dropout, 'decoder_input_keep':args.dropout,
           'encoder_output_keep':args.dropout, 'decoder_output_keep':args.dropout,
          }
 
 dev_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
-          'beam_width':args.beam_length, 'limit_decode_steps':args.limit_decode_steps,
+          'beam_width':args.beam_length, 'limit_decode_steps':None,
           'encoder_input_keep':1, 'decoder_input_keep':1,
           'encoder_output_keep':1, 'decoder_output_keep':1,
          }

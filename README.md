@@ -4,7 +4,10 @@
 
 This my implementation of a seq2seq Neural translation model using the Tensorflow API. There are many tutorials and examples on the internet demonstrating how to implement a seq2seq translation model in Tensorflow, including from Google (https://github.com/tensorflow/nmt), I studied many of them and recreated my own as a way to teach myself the core functionality of Tensorflow and to internalize my understanding of many of the underlying ideas behind seq2seq and deep learning in general.
 
+### Requirements
 In order to run the code you need: Python 3.5, Tensorflow 1.3. Pandas 0.18
+
+### Execution
 
 The training code can be launched from seq2seq_training.py, for example: 
 
@@ -28,9 +31,9 @@ where
   - encoder_input is the string input to the model
   - frozen_model_path is a optional param if you wish to create a frozen instance of the model for serving as a API.
   
-A simple API serving the model will be at a later date.
+A simple API serving the model will be added at a later date.
 
-Some things to do when I get around to it:
+### To do list
 
   - Implement a bidirectional encoder
   - Implement anti-language model to increase the diversity of the decoder inference responses (Marsan Ma has a version implemented here: https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm)

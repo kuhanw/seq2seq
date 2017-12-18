@@ -27,6 +27,7 @@ class Model:
         self.beam_width = params['beam_width']
         self.limit_decode_steps = params['limit_decode_steps']
 
+
         if self.mode == 'train':
             
             self.minibatch_size = params['minibatch_size']
@@ -55,6 +56,13 @@ class Model:
             self.create_embeddings()
             self.create_encoder()
             self.create_inference_decoder()
+
+    def create_cell(self):
+
+        #cell_unit = tf.contrib.rnn.LSTMCell(self.n_cells)
+        cell_unit = tf.contrib.rnn.LayerNormBasicLSTMCell(self.n_cells, dropout_keep_prob=1.0)
+
+        return cell_unit
 
     def create_queue(self, training_data):
                 
@@ -136,8 +144,7 @@ class Model:
         self.decoder_cell_list = []
         #At inference time there should be no dropout!
         for layer in range(self.num_layers):
-            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), 
-                                                             input_keep_prob=self.decoder_input_keep, 
+            cell = tf.contrib.rnn.DropoutWrapper(self.create_cell(), input_keep_prob=self.decoder_input_keep, 
                                                             output_keep_prob=self.decoder_output_keep)
             self.decoder_cell_list.append(cell)
 
@@ -211,8 +218,7 @@ class Model:
         self.decoder_cell_list = []
 
         for layer in range(self.num_layers):
-            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), 
-                                                         input_keep_prob=self.decoder_input_keep, 
+            cell = tf.contrib.rnn.DropoutWrapper(self.create_cell(), input_keep_prob=self.decoder_input_keep, 
                                                             output_keep_prob=self.decoder_output_keep)
             self.decoder_cell_list.append(cell)
 
@@ -264,8 +270,7 @@ class Model:
         self.encoder_cell_list = []
 
         for layer in range(self.num_layers):
-            cell = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(self.n_cells, state_is_tuple=True), 
-                                                 input_keep_prob=self.encoder_input_keep, 
+            cell = tf.contrib.rnn.DropoutWrapper(self.create_cell(), input_keep_prob=self.encoder_input_keep, 
                                                     output_keep_prob=self.encoder_output_keep)
             self.encoder_cell_list.append(cell)
 

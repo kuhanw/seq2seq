@@ -1,1 +1,0 @@
-for large dataset of ~60k vocab, 280 cells and 1 layer is insufficient and does not learn below training loss ~5

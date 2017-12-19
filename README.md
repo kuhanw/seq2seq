@@ -36,8 +36,8 @@ A simple API serving the model will be added at a later date.
 ### To do list
 
   - Implement a bidirectional encoder
-  - Implement anti-language model to increase the diversity of the decoder inference responses (Marsan Ma has a version implemented here: https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm)
-  - Clean up API code to use frozen models instead of restoring from checkpoint
+  - Implement anti-language model to increase the diversity of the decoder inference responses (Here is an implementation: https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm)
+  - <s>Clean up API code to use frozen models instead of restoring from checkpoint</s>
   - Clean up notebooks
   - Clean up text preprocessing code
 

@@ -3,10 +3,11 @@
 import json
 import argparse
 import pickle
-import helpers
+import data_formatting
 import time
-
 import tensorflow as tf
+
+from tensorflow.contrib.seq2seq.python.ops import beam_search_ops
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -17,22 +18,16 @@ Kuhan Wang
 17-12-01
 '''
 
+def load_graph(filename):
 
-def make_inference_inputs(input_seq):
-    inputs_, inputs_length_ = helpers.batch(input_seq)
+    graph_file = tf.gfile.GFile(filename, "rb")
+    graph_def = tf.GraphDef()
+    graph_def.ParseFromString(graph_file.read())
 
-    return {
-	       'encoder_inputs:0': inputs_,
-	       'encoder_inputs_length:0': inputs_length_,
-	       }
-
-def encodeSent(sent):
-    if type(sent) == str: sent = sent.split(' ')
-	
-    return [vocab_dict[word] if word in vocab_dict else 2 for word in sent]
-
-def decodeSent(sent):
-    return ' '.join([inv_map[i] for i in sent])
+    graph = tf.Graph().as_default()
+    tf.import_graph_def(graph_def, name="prefix")
+ 
+    return graph
 
 @app.route('/about')
 def about():
@@ -44,12 +39,10 @@ def predict():
    
     input_json = request.get_json(force=True) 
     x_in = input_json['string']
+    train_data_encoder = data_formatting.encodeSent(x_in, vocab_dict)
+    inf_out = sess.run(y, feed_dict={x:[train_data_encoder], x_len:[len(train_data_encoder)]})
 
-    inf_input = make_inference_inputs([encodeSent(x_in.split(' '))])
-    y_out = session.run([op_inf, op_inf_prob], inf_input)
-
-    inf_sent = list(zip(*y_out[0]))[0]
-    inf_prob = list(zip(*y_out[1]))
+    inf_sent = inf_out[0]
 
     json_data = json.dumps({'inf_sent': decodeSent(inf_sent)})
     print("Time spent handling the request: %f" % (time.time() - start))
@@ -58,38 +51,33 @@ def predict():
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", default="seq2seq_enron_encode_128_decode_256_vocab_7239_embedding_256_seq_3_49_batch_32_layers_2_enkeep_10_dekeep_10-28679", type=str, help="Metagraph filename")
-    
+    parser.add_argument("--model_name", type=str, help='Filename of the frozen model.', required=True)
+    parser.add_argument("--vocab_name", type=str, help='Filename of the vocabulary corresponding to the model.', required=True)
+
     args = parser.parse_args()
-    filename = args.model_name
+    model_filename = args.model_name
+    vocab_filename = args.vocab_name
     
     print('Load model')
+    model_graph = load_graph(model_filename)
 
     tf.reset_default_graph()
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
     
-    session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
-    #Import the meta graph in the current default Graph
-    saver = tf.train.import_meta_graph(filename + '.meta')
-
-    #Restore the weights
-    saver.restore(session, filename)
-
-    print ('Graph loaded, session initiated')
-
-    graph = tf.get_default_graph()
-    
-	#Access operations. 
-    op_inf = graph.get_tensor_by_name('Decoder/decoder_prediction_inference:0')
-    op_inf_prob = graph.get_tensor_by_name('Decoder/decoder_prediction_prob_inference:0')
-
     print ('Load Vocabulary')
-    vocab_dict = pickle.load(open('dicts\word_dict_v01_enron_py35_seq_length_3_49_sample_4256_limited_vocab.pkl', 'rb'))
 
-    inv_map = {v: k for k, v in vocab_dict.items()}
+    vocab_dict = pickle.load(open(vocab_filename, 'rb'))
+    inv_map = data_formatting.createInvMap(vocab_dict)
 
+    #Access input and output operations. 
+    x = graph.get_tensor_by_name('prefix/training_model/encoder_inputs:0')
+    x_len = graph.get_tensor_by_name('prefix/training_model/encoder_inputs_length:0')
+
+    y = graph.get_tensor_by_name('prefix/training_model/decoder_pred_decode:0')
+    
+    session = tf.Session(graph=model_graph)
     print('Start API')
-    app.run()
+    app.run(host='0.0.0.0')
     
     session.close()
 

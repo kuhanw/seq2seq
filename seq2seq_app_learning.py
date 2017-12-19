@@ -6,6 +6,7 @@ import pickle
 import data_formatting
 import time
 import tensorflow as tf
+import random
 
 from tensorflow.contrib.seq2seq.python.ops import beam_search_ops
 from flask import Flask, request, jsonify
@@ -24,10 +25,19 @@ def load_graph(filename):
     graph_def = tf.GraphDef()
     graph_def.ParseFromString(graph_file.read())
 
-    graph = tf.Graph().as_default()
-    tf.import_graph_def(graph_def, name="prefix")
- 
+    with tf.Graph().as_default() as graph:
+        tf.import_graph_def(graph_def)
     return graph
+
+def clean_text(text):
+
+    return ' '.join([i for i in text if i!='<EOS>'])
+
+def sample(inf_results):
+
+    sample = random.sample(inf_results[:5], 1)
+
+    return sample[0]
 
 @app.route('/about')
 def about():
@@ -40,12 +50,18 @@ def predict():
     input_json = request.get_json(force=True) 
     x_in = input_json['string']
     train_data_encoder = data_formatting.encodeSent(x_in, vocab_dict)
-    inf_out = sess.run(y, feed_dict={x:[train_data_encoder], x_len:[len(train_data_encoder)]})
+    inf_out = session.run(y, feed_dict={x:[train_data_encoder], x_len:[len(train_data_encoder)]})
 
-    inf_sent = inf_out[0]
+    inf_sent = sample(list(zip(*inf_out[0])))
+    
+    decoded_sent = clean_text(data_formatting.decodeSent(inf_sent, inv_map))
 
-    json_data = json.dumps({'inf_sent': decodeSent(inf_sent)})
+    print (inf_sent)
+    
+    json_data = json.dumps({'inf_sent': decoded_sent})
+    
     print("Time spent handling the request: %f" % (time.time() - start))
+    
     return json_data											       
 
 if __name__ == "__main__":
@@ -58,11 +74,11 @@ if __name__ == "__main__":
     model_filename = args.model_name
     vocab_filename = args.vocab_name
     
+    tf.reset_default_graph()
+    
     print('Load model')
     model_graph = load_graph(model_filename)
 
-    tf.reset_default_graph()
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
     
     print ('Load Vocabulary')
 
@@ -70,12 +86,13 @@ if __name__ == "__main__":
     inv_map = data_formatting.createInvMap(vocab_dict)
 
     #Access input and output operations. 
-    x = graph.get_tensor_by_name('prefix/training_model/encoder_inputs:0')
-    x_len = graph.get_tensor_by_name('prefix/training_model/encoder_inputs_length:0')
+    x = model_graph.get_tensor_by_name('import/training_model/encoder_inputs:0')
+    x_len = model_graph.get_tensor_by_name('import/training_model/encoder_inputs_length:0')
 
-    y = graph.get_tensor_by_name('prefix/training_model/decoder_pred_decode:0')
+    y = model_graph.get_tensor_by_name('import/training_model/decoder_pred_decode:0')
     
-    session = tf.Session(graph=model_graph)
+    config = tf.ConfigProto(device_count = {'GPU': 0})
+    session = tf.Session(graph=model_graph, config=config)
     print('Start API')
     app.run(host='0.0.0.0')
     

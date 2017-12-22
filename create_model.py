@@ -28,7 +28,7 @@ class Model:
         self.limit_decode_steps = params['limit_decode_steps']
 
 
-        if self.mode == 'train':
+        if self.mode == 'train' or self.mode == 'debug':
             
             self.minibatch_size = params['minibatch_size']
             self.n_threads = params['n_threads']
@@ -37,7 +37,10 @@ class Model:
             self.encoder_input_keep = params['encoder_input_keep']
             self.decoder_input_keep = params['decoder_input_keep']
 
-            self.create_queue(sequence_data)
+            if self.mode != 'debug':
+                print(self.mode)
+                self.create_queue(sequence_data)
+            
             self.initialize_placeholders()
             self.create_embeddings()
             self.create_encoder()
@@ -59,7 +62,6 @@ class Model:
 
     def create_cell(self):
 
-        #cell_unit = tf.contrib.rnn.LSTMCell(self.n_cells)
         cell_unit = tf.contrib.rnn.LayerNormBasicLSTMCell(self.n_cells, dropout_keep_prob=1.0)
 
         return cell_unit
@@ -77,8 +79,7 @@ class Model:
         #                         self.encoder_length_data.get_shape().as_list()[1:],
         #                         self.decoder_data.get_shape().as_list()[1:],
         #                         self.decoder_length_data.get_shape().as_list()[1:]
-        #                        ])
-        
+        #                        ])        
         
         queue = tf.RandomShuffleQueue(capacity=100000, dtypes=[tf.int32, tf.int32, tf.int32, tf.int32],         
                     shapes=[encoder_data.get_shape().as_list()[1:],
@@ -105,8 +106,6 @@ class Model:
         self.masks = tf.sequence_mask(lengths=self.decoder_train_length, 
                          maxlen=self.max_decoder_length, dtype=tf.float32, name='masks')
 
-        # Computes per word average cross-entropy over a batch
-        # Internally calls 'nn_ops.sparse_softmax_cross_entropy_with_logits' by default
         self.loss = tf.contrib.seq2seq.sequence_loss(logits=self.decoder_outputs_train_logit, 
                                                      targets=self.decoder_train_targets,
                                                      weights=self.masks,
@@ -119,15 +118,7 @@ class Model:
 
     
     def create_inference_decoder(self):
-
-        #if self.beam_width == 1:
-            
-            #encoder_last_state =self.encoder_last_state
-
-            #encoder_outputs = self.encoder_outputs
-
-            #encoder_inputs_length = self.encoder_inputs_length
-        
+       
         if self.beam_width != 1:
             
             self.encoder_last_state = tf.contrib.seq2seq.tile_batch(self.encoder_last_state, self.beam_width)
@@ -171,14 +162,13 @@ class Model:
         if self.beam_width  == 1:
             # Helper to feed inputs for greedy decoding: uses the argmax of the output
             decoding_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(start_tokens=start_tokens,
-                                                        end_token=end_token,
-                                                        embedding=self.embedding_matrix)
+                                                                       end_token=end_token,
+                                                                       embedding=self.embedding_matrix)
 
-            # Basic decoder performs greedy decoding at each time step
             self.inference_decoder = tf.contrib.seq2seq.BasicDecoder(cell=self.decoder_cell,
-                                                 helper=decoding_helper,
-                                                 initial_state=self.decoder_initial_state,
-                                                 output_layer=self.output_layer)
+                                                                     helper=decoding_helper,
+                                                                     initial_state=self.decoder_initial_state,
+                                                                     output_layer=self.output_layer)
         else:
             
             self.inference_decoder = tf.contrib.seq2seq.BeamSearchDecoder(cell=self.decoder_cell,
@@ -188,6 +178,12 @@ class Model:
                                                                            initial_state=self.decoder_initial_state,
                                                                            beam_width=self.beam_width,
                                                                            output_layer=self.output_layer)
+            
+            #self.finished, self.start_inputs, self.initial_state = self.inference_decoder.initialize()
+            
+            #self.outputs, self.next_state, self.next_inputs, self.finished = self.inference_decoder.step(0, self.start_inputs, self.initial_state)
+
+            
         if self.limit_decode_steps == True:
             max_decode_step = tf.reduce_max(self.encoder_inputs_length) + 5
         else:
@@ -200,10 +196,8 @@ class Model:
                     maximum_iterations=max_decode_step))
            
         if self.beam_width>1:
-#            with variable_scope
             self.decoder_pred_decode = tf.identity(self.decoder_outputs_decode.predicted_ids, name='decoder_pred_decode')
         else:
-#            with variable_scope
             self.decoder_pred_decode = tf.argmax(self.decoder_outputs_decode.rnn_output, axis=-1, name='decoder_pred_decode')
 
 
@@ -222,7 +216,7 @@ class Model:
                                                             output_keep_prob=self.decoder_output_keep)
             self.decoder_cell_list.append(cell)
 
-        self.decoder_initial_state = self.encoder_last_state
+        #self.decoder_initial_state = self.encoder_last_state
         
         #Last layer of decoders is wrapped in attention
         self.decoder_cell_list[-1] = tf.contrib.seq2seq.AttentionWrapper(
@@ -262,6 +256,8 @@ class Model:
         pad_size = tf.shape(self.decoder_train_targets)[1] - tf.shape(self.decoder_outputs_train.rnn_output)[1]
         
         self.decoder_outputs_train_logit = tf.pad(self.decoder_outputs_train.rnn_output, [[0, 0], [0,  pad_size], [0, 0]])
+        
+        self.decoder_pred_train_prob = tf.nn.log_softmax(self.decoder_outputs_train_logit, name='decoder_pred_train_prob')
 
         self.decoder_pred_train = tf.argmax(self.decoder_outputs_train_logit, axis=-1, name='decoder_pred_train')
     
@@ -280,13 +276,12 @@ class Model:
                                                 cell=self.encoder_cell, inputs=self.encoder_inputs_embedded,
                                                 sequence_length=self.encoder_inputs_length, dtype=tf.float32,
                                                 time_major=False)
-        
-        #return self.encoder_outputs, self.encoder_last_state
           
     def initialize_placeholders(self):
             
         #Create handles for encoder and decoders
-        if self.mode == 'infer':
+        if self.mode == 'infer' or self.mode=='debug':
+            
             self.encoder_inputs = tf.placeholder(shape=(None, None),
                         dtype=tf.int32, name='encoder_inputs')
 
@@ -297,14 +292,15 @@ class Model:
 
         self.batch_size = tf.shape(self.encoder_inputs)[0]
 
-        if self.mode == 'train':
-                
+        if self.mode == 'train' or self.mode=='debug':
+            
+            if self.mode == 'debug':
             # required for training, not required for testing
-            #self.decoder_targets = tf.placeholder(shape=(None, None),
-            #                dtype=tf.int32, name='decoder_targets')
+                self.decoder_targets = tf.placeholder(shape=(None, None),
+                           dtype=tf.int32, name='decoder_targets')
 
-            #self.decoder_targets_length = tf.placeholder(shape=(None,),
-             #               dtype=tf.int32, name='decoder_targets_length')
+                self.decoder_targets_length = tf.placeholder(shape=(None,),
+                          dtype=tf.int32, name='decoder_targets_length')
 
             #Make EOS and PAD matrices to concatenate with targets
                 
@@ -335,6 +331,6 @@ class Model:
         #Map each input unit to a column in the embedding matrix
         self.encoder_inputs_embedded = tf.nn.embedding_lookup(self.embedding_matrix, self.encoder_inputs)
 
-        if self.mode == 'train':
+        if self.mode == 'train' or self.mode=='debug':
 
             self.decoder_train_inputs_embedded = tf.nn.embedding_lookup(self.embedding_matrix, self.decoder_train_inputs)

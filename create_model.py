@@ -5,11 +5,12 @@ import math
 from tensorflow.python.layers.core import Dense
 from tensorflow.python.util import nest
 from tensorflow.contrib.seq2seq.python.ops import beam_search_ops
-
+import pickle
 import data_formatting
 import pandas as pd
 import numpy as np
 import tf_helpers
+n_grams = pickle.load(open('n_grams_test.pkl', 'rb'))
 
 class Model:
     
@@ -27,6 +28,7 @@ class Model:
         self.vocab_size = params['vocab_size']
         self.beam_width = params['beam_width']
         self.limit_decode_steps = params['limit_decode_steps']
+        #self.anti_lm = params['anti_lm']
 
 
         if self.mode == 'train' or self.mode == 'debug':
@@ -37,7 +39,7 @@ class Model:
             self.decoder_output_keep = params['decoder_output_keep']
             self.encoder_input_keep = params['encoder_input_keep']
             self.decoder_input_keep = params['decoder_input_keep']
-
+            self.anti_lm_weight = params['anti_lm_weight']
             if self.mode != 'debug':
                 print(self.mode)
                 self.create_queue(sequence_data)
@@ -220,6 +222,133 @@ class Model:
                 return tf.logical_not(tf.reduce_all(finished))
                 #return tf.less(time, 50) 
             
+            def anti_lm_condition(test, n_grams_tf, beam_pad, current_beam, n_beams, current_beam_step):
+                return current_beam < n_beams #number of beams, i.e. beam width, will specify at run time    
+            
+            def anti_lm_body(test, n_grams_tf, beam_pad, current_beam, n_beams, current_beam_step):
+                #This loops on each beam individually
+      
+                def grab_probs(n_grams_tf, y_equal_2): 
+
+                    #print ('Grab Probabilities')
+                    y_args = tf.where(y_equal_2)
+
+                    #Grab the n_gram sequences that are matched
+                    y_diff_gather = tf.gather(n_grams_tf, y_args)
+                    #Take the last token in each sequence and count their unique occurrences
+
+                    last_token_pos = tf.shape(y_diff_gather)[-1]
+
+                    y_last_token = y_diff_gather[:,0][:,last_token_pos-1]
+                    y_last_token_unique = tf.unique_with_counts(y_last_token)
+
+                    total_count = tf.reduce_sum(y_last_token_unique.count)
+
+                    indices = tf.reshape(y_last_token_unique.y, [tf.shape(y_last_token_unique.y)[0], 1])
+
+                    test_add_result = tf.scatter_nd(indices=indices, 
+                                updates=y_last_token_unique.count, shape=scatter_base)/total_count
+
+                    test_add_result = tf.log(test_add_result + 10e-10)
+
+                    return tf.reshape(test_add_result, [1, self.vocab_size])
+
+                def dump_zeros(n_grams_tf, y_equal_2): 
+                    #print ('No matches found')
+                    return tf.constant([[0. for i in range(self.vocab_size)]], dtype=tf.float64)
+
+                scatter_base = tf.constant([self.vocab_size]) #Size of dict for scatter base will specify at run time
+
+                #Find where current beam matches n_gram sequence up to current seq pos, cast as int
+                y_test = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))
+                #Reduce across the length of the beam 
+                y_test_reduce_sum = tf.reduce_sum(y_test, axis=1)
+
+                y_empty = tf.reduce_sum(y_test_reduce_sum)
+
+                #Find args where the beam is matched to the n_gram combinations
+                y_equal_2  = tf.equal(current_beam_step, y_test_reduce_sum)
+
+                #Why does cond proceed down both paths?
+                test_add = tf.cond(tf.equal(0, tf.reduce_sum(tf.to_int32(y_equal_2))),
+                    true_fn=lambda: dump_zeros(n_grams_tf, y_equal_2),
+                    false_fn=lambda : grab_probs(n_grams_tf, y_equal_2))
+
+                test = tf.concat([test, test_add], axis=0)
+
+                return test, n_grams_tf, beam_pad, current_beam+1, n_beams, current_beam_step
+            
+            def _get_scores(log_probs, sequence_lengths, length_penalty_weight, time):
+                """Calculates scores for beam search hypotheses.
+                Args:
+                log_probs: The log probabilities with shape
+                `[batch_size, beam_width, vocab_size]`.
+                sequence_lengths: The array of sequence lengths.
+                length_penalty_weight: Float weight to penalize length. Disabled with 0.0.
+                Returns:
+                The scores normalized by the length_penalty.
+                """
+                #length_penality_ = _length_penalty(sequence_lengths=sequence_lengths, penalty_factor=length_penalty_weight)
+
+                score = log_probs#/length_penality_
+
+                current_time = tf.contrib.util.constant_value(time)
+
+                if current_time == 0:
+                    print ('Current Time zero')
+                    n_grams_tf = tf.constant(n_grams[0])
+                    scatter_base = tf.constant([self.vocab_size]) #Size of dict for scatter base will specify at run time
+
+                    y_unique_with_counts = tf.unique_with_counts(tf.reshape(n_grams_tf, [1, tf.shape(n_grams_tf)[0]])[0])
+
+                    total_count = tf.reduce_sum(y_unique_with_counts.count)
+
+                    indices = tf.reshape(y_unique_with_counts.y, [tf.shape(y_unique_with_counts.y)[0], 1])
+
+                    test_add = tf.scatter_nd(indices=indices, 
+                                updates=y_unique_with_counts.count, shape=scatter_base)/total_count
+
+                    #Add small value for numerically stability
+                    test_add = tf.log(test_add + 10e-10)    
+
+                    test_add_tile = tf.reshape(tf.tile(test_add, multiples=[self.beam_width]), shape=[1, self.beam_width, self.vocab_size])
+
+                    score = score + tf.to_float(test_add_tile)
+
+                else:
+
+                    print ('current time')
+
+                    n_grams_tf = tf.constant(n_grams[1]) #Need to find a way to increment this counter
+
+                    #When you specify the axis of concat such a rank must exist! 
+                    #Thus cannot specify axis=1 if the rank is 0!
+
+                    concat_base = tf.constant([[1.0 for i in range(self.vocab_size)]], dtype=tf.float64) 
+                    #concat base will specify vocab size at run time
+
+                    beam = tf.transpose(initial_outputs_ta.predicted_ids.concat())
+
+                    beam_pad = tf.pad(beam, [[0, 0], [0, 1]], mode='CONSTANT', constant_values=0)
+
+                    initial_beam_step = tf.constant(0)  #This starting the loop from the first beam
+
+                    n_beams = tf.constant(self.beam_width) #will specify at run time
+
+                    anti_lm_outputs = tf.while_loop(anti_lm_condition, anti_lm_body, 
+                                    [concat_base, n_grams_tf, beam_pad, initial_beam_step, n_beams, time], 
+                                    shape_invariants=[tf.TensorShape([None, self.vocab_size]), 
+                                                      n_grams_tf.get_shape(),
+                                                      beam_pad.get_shape(), 
+                                                      initial_beam_step.get_shape(), 
+                                                      n_beams.get_shape(), time.get_shape()])
+
+                    anti_beam_probs = anti_lm_outputs[0][1:]
+                    score = score + tf.to_float(anti_beam_probs)
+
+                return score
+            
+            
             def step(time, outputs, state, inputs, finished, sequence_lengths):       
                 
                 prediction_lengths = state.lengths
@@ -253,7 +382,12 @@ class Model:
                 step_log_probs = tf_helpers._mask_probs(step_log_probs, end_token, previously_finished)
 
                 #Here is where we will add the anti-language model at a later date
-                total_probs = tf.expand_dims(state.log_probs, 2) + step_log_probs
+                #total_probs = tf.expand_dims(state.log_probs, 2) + step_log_probs 
+                
+                #current_sequence
+                #sequence_probability = probSeq(['i', 'don', 't', 'want'], 0, n_grams[3], [len(n_grams[0])])
+                
+                total_probs = tf.expand_dims(state.log_probs, 2) + step_log_probs - 0.2 #* np.log(
 
                 vocab_size = logits.shape[-1].value or tf.shape(logits)[-1]
 
@@ -268,14 +402,20 @@ class Model:
                 lengths_to_add = tf.expand_dims(add_mask, 2) * lengths_to_add
 
                 new_prediction_lengths = (lengths_to_add + tf.expand_dims(prediction_lengths, 2))
-                
-                scores = total_probs
-
-                scores_shape = tf.shape(scores)
-
+  
                 time = tf.convert_to_tensor(time, name="time")
-
+                scores = total_probs
+                #scores = _get_scores(log_probs=total_probs,
+                #         sequence_lengths=new_prediction_lengths,
+                #          length_penalty_weight=0, time=time)
+                
+                scores_shape = tf.shape(scores)
+                #Consider only 1 beam at the first step, as we are simply looking for the beam_width number of best
+                #tokens to begin with
                 scores_flat = tf.cond(time > 0, lambda: tf.reshape(scores, [self.batch_size, -1]), lambda: scores[:, 0])
+                
+                scores_flat = tf.cond(time > 0, lambda: scores_flat, 
+                                 lambda: tf_helpers.anti_lm_step_0(log_probs=scores_flat, vocab_size=self.vocab_size, l=0))
 
                 num_available_beam = tf.cond(time > 0, lambda: tf.reduce_prod(scores_shape[1:]), lambda: tf.reduce_prod(scores_shape[2:]))
 
@@ -307,6 +447,7 @@ class Model:
                 #beam_width*vocab_size
                 
                 next_word_ids = tf.to_int32(word_indices % vocab_size)
+                
                 #The beam_ids represent which beams these word indices 
                 #(and thereby log prob values belong to), as
                 #we have word indices extracted out of 1 to beam_width*vocab_size
@@ -375,14 +516,14 @@ class Model:
                       tf.fill(tf.shape(sequence_lengths), time + 1),
                   sequence_lengths)
                 
-                return time+1, outputs, beam_search_state, next_inputs, finished, next_sequence_lengths
+                return time+1, outputs, beam_search_state, next_inputs, finished, next_sequence_lengths#, anti_lm_weight
                 
             #Initialize the decoder
             self.time = 0
             
             self.finished, self.first_inputs, self.initial_state = self.inference_decoder.initialize()
+            
             initial_time = tf.constant(self.time)
-            #What is this for? initial_outputs_ta
             initial_state = self.initial_state
             initial_inputs = self.first_inputs
             initial_finished = self.finished
@@ -390,33 +531,19 @@ class Model:
                                                     self.inference_decoder.output_dtype)
             
             initial_sequence_lengths = tf.zeros_like(initial_finished, dtype=tf.int32)
-            '''
-            #cell_state = initial_state.cell_state      
 
-            #cell_inputs = nest.map_structure(lambda inp: self.inference_decoder._merge_batch_beams(inp, s=inp.shape[2:]), 
-             #                                    initial_inputs)
-
-            #cell_state = nest.map_structure(self.inference_decoder._maybe_merge_batch_beams, cell_state, 
-             #                                   self.inference_decoder._cell.state_size)
-
-            #cell_outputs, self.next_cell_state = self.inference_decoder._cell(cell_inputs, cell_state)
-
-            #cell_outputs = self.inference_decoder._output_layer(cell_outputs)
-
-            #initial_logits = cell_outputs
-            '''
             self.decode_loop = tf.while_loop(condition,
                                         step,
                                         loop_vars=[initial_time, initial_outputs_ta, initial_state, initial_inputs, 
                                                    initial_finished, initial_sequence_lengths],
-                                        parallel_iterations=10,
+                                        parallel_iterations=1,
                                         swap_memory=False)
             
-            final_outputs_ta = self.decode_loop[1]
+            self.final_outputs_ta = self.decode_loop[1]
             self.final_state = self.decode_loop[2]
             self.final_inputs = self.decode_loop[3]
             
-            self.final_outputs = nest.map_structure(lambda ta: ta.stack(), final_outputs_ta)
+            self.final_outputs = nest.map_structure(lambda ta: ta.stack(), self.final_outputs_ta)
             self.final_sequence_lengths = self.decode_loop[5]
             self.predicted_ids = beam_search_ops.gather_tree(
                 self.final_outputs.predicted_ids, self.final_outputs.parent_ids,

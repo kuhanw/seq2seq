@@ -40,6 +40,7 @@ class Model:
             self.encoder_input_keep = params['encoder_input_keep']
             self.decoder_input_keep = params['decoder_input_keep']
             self.anti_lm_weight = params['anti_lm_weight']
+            
             if self.mode != 'debug':
                 print(self.mode)
                 self.create_queue(sequence_data)
@@ -216,7 +217,7 @@ class Model:
 
             def _create_ta(s, d):
                 return tf.TensorArray(
-                    dtype=d, size=0, dynamic_size=True, element_shape=_shape(self.batch_size, s))
+                    dtype=d, size=0, dynamic_size=True, element_shape=_shape(self.batch_size, s), clear_after_read=False)
             
             def condition(time, unused_outputs_ta, unused_state, unused_inputs, finished, unused_sequence_lengths):
                 return tf.logical_not(tf.reduce_all(finished))
@@ -313,7 +314,7 @@ class Model:
 
                     test_add_tile = tf.reshape(tf.tile(test_add, multiples=[self.beam_width]), shape=[1, self.beam_width, self.vocab_size])
 
-                    score = score + tf.to_float(test_add_tile)
+                    score = score + self.anti_lm_weight*tf.to_float(test_add_tile)
 
                 else:
 
@@ -341,10 +342,11 @@ class Model:
                                                       n_grams_tf.get_shape(),
                                                       beam_pad.get_shape(), 
                                                       initial_beam_step.get_shape(), 
-                                                      n_beams.get_shape(), time.get_shape()])
+                                                      n_beams.get_shape(), time.get_shape()],
+                                                      parallel_iterations=1)
 
                     anti_beam_probs = anti_lm_outputs[0][1:]
-                    score = score + tf.to_float(anti_beam_probs)
+                    score = score + self.anti_lm_weight*tf.to_float(anti_beam_probs)
 
                 return score
             
@@ -404,10 +406,14 @@ class Model:
                 new_prediction_lengths = (lengths_to_add + tf.expand_dims(prediction_lengths, 2))
   
                 time = tf.convert_to_tensor(time, name="time")
-                scores = total_probs
-                #scores = _get_scores(log_probs=total_probs,
-                #         sequence_lengths=new_prediction_lengths,
-                #          length_penalty_weight=0, time=time)
+                #scores = total_probs
+        
+                def score_total_probs(total_probs):
+                    return total_probs
+            
+                scores = tf.cond(time < 2, true_fn=lambda: _get_scores(log_probs=total_probs,
+                         sequence_lengths=new_prediction_lengths,
+                          length_penalty_weight=0, time=time), false_fn=lambda: score_total_probs(total_probs) )
                 
                 scores_shape = tf.shape(scores)
                 #Consider only 1 beam at the first step, as we are simply looking for the beam_width number of best

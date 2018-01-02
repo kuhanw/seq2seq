@@ -20,7 +20,7 @@ def argMaxTopN(array, n):
     
     return ind[np.argsort(array[ind])], array[ ind[np.argsort(array[ind])]]
 
-def beamDecode(beam_width, model, input_sent, checkpoint, max_decode_steps, debug=False):
+def beamDecode(beam_width, model, input_sent, checkpoint, max_decode_steps, question_mark_token, debug=False):
 
     beams = [{'eos':0, 'encoder_seq':input_sent, 'encoder_seq_length': len(input_sent), 
            'decoder_seq':[], 'decoder_seq_length':0, 'total_log_prob':0} for i in range(beam_width)]
@@ -87,7 +87,7 @@ def beamDecode(beam_width, model, input_sent, checkpoint, max_decode_steps, debu
 
                 temp_beam['decoder_seq'].append(beam_results_vocab[arg])
 
-                if beam_results_vocab[arg] == 1 or beam_results_vocab[arg]==2093: #Hacking for question mark
+                if beam_results_vocab[arg] == 1 or beam_results_vocab[arg]==question_mark_token: #Hacking for question mark
                     temp_beam['eos'] = 1
 
                 temp_beam['decoder_seq_length']+=1

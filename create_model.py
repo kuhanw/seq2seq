@@ -40,6 +40,7 @@ class Model:
             self.encoder_input_keep = params['encoder_input_keep']
             self.decoder_input_keep = params['decoder_input_keep']
             self.anti_lm_weight = params['anti_lm_weight']
+            self.anti_lm_max_step = params['anti_lm_max_step']
             
             if self.mode != 'debug':
                 print(self.mode)
@@ -81,13 +82,6 @@ class Model:
 
         decoder_data = tf.convert_to_tensor(tf.cast(np.asarray(training_data[2]), tf.int32))
         decoder_length_data = tf.convert_to_tensor(tf.cast(np.asarray(training_data[3]), tf.int32))
-        
-        #queue = tf.FIFOQueue(capacity=10, dtypes=[tf.int32, tf.int32, tf.int32, tf.int32], 
-        #            shapes=[self.encoder_data.get_shape().as_list()[1:],
-        #                         self.encoder_length_data.get_shape().as_list()[1:],
-        #                         self.decoder_data.get_shape().as_list()[1:],
-        #                         self.decoder_length_data.get_shape().as_list()[1:]
-        #                        ])        
         
         queue = tf.RandomShuffleQueue(capacity=100000, dtypes=[tf.int32, tf.int32, tf.int32, tf.int32],         
                     shapes=[encoder_data.get_shape().as_list()[1:],
@@ -141,6 +135,7 @@ class Model:
                                     memory_sequence_length=self.encoder_inputs_length) 
 
         self.decoder_cell_list = []
+
         #At inference time there should be no dropout!
         for layer in range(self.num_layers):
             cell = tf.contrib.rnn.DropoutWrapper(self.create_cell(), input_keep_prob=self.decoder_input_keep, 
@@ -156,8 +151,11 @@ class Model:
                                          name='Attention_Wrapper')        
        
         self.initial_state = [state for state in self.encoder_last_state]
-
-        self.initial_state[-1] = self.decoder_cell_list[-1].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
+        #What if we made the initial state here all zeroes?
+        #self.initial_state[-1] = self.decoder_cell_list[-1].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
+        for i in range(len(self.initial_state)):
+            
+            self.initial_state[i] = self.decoder_cell_list[i].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
 
         self.decoder_initial_state = tuple(self.initial_state)
 
@@ -169,12 +167,12 @@ class Model:
     
         if self.beam_width  == 1:
             # Helper to feed inputs for greedy decoding: uses the argmax of the output
-            decoding_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(start_tokens=start_tokens,
+            self.decoding_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(start_tokens=start_tokens,
                                                                        end_token=end_token,
                                                                        embedding=self.embedding_matrix)
 
             self.inference_decoder = tf.contrib.seq2seq.BasicDecoder(cell=self.decoder_cell,
-                                                                     helper=decoding_helper,
+                                                                     helper=self.decoding_helper,
                                                                      initial_state=self.decoder_initial_state,
                                                                      output_layer=self.output_layer)
         else:
@@ -289,14 +287,18 @@ class Model:
                 Returns:
                 The scores normalized by the length_penalty.
                 """
-                #length_penality_ = _length_penalty(sequence_lengths=sequence_lengths, penalty_factor=length_penalty_weight)
 
-                score = log_probs#/length_penality_
+                def fn1(): return tf.constant(n_grams[1])
+                def fn2(): return tf.constant(n_grams[2])
+                def fn3(): return tf.constant(n_grams[3])
+                def fn4(): return tf.constant(n_grams[4])
+                def fn5(): return tf.constant(n_grams[5])
+                def fn6(): return tf.constant(n_grams[6])
+                def fn7(): return tf.constant(n_grams[7])
+                def fn7(): return tf.constant(n_grams[8])
+                def fn_default(): return tf.constant(-1)
 
-                current_time = tf.contrib.util.constant_value(time)
-
-                if current_time == 0:
-                    print ('Current Time zero')
+                def time_zero_anti_lm(score):
                     n_grams_tf = tf.constant(n_grams[0])
                     scatter_base = tf.constant([self.vocab_size]) #Size of dict for scatter base will specify at run time
 
@@ -316,17 +318,23 @@ class Model:
 
                     score = score + self.anti_lm_weight*tf.to_float(test_add_tile)
 
-                else:
+                    return score
 
-                    print ('current time')
-
-                    n_grams_tf = tf.constant(n_grams[1]) #Need to find a way to increment this counter
+                def time_not_zero_anti_lm(score):
+                    #No anti-lm correction past 8th sequence position at most
+                    n_grams_tf = tf.case({tf.equal(time,1): fn1, 
+                                 tf.equal(time,2): fn2,
+                                 tf.equal(time,3): fn3,
+                                 tf.equal(time,4): fn4,
+                                 tf.equal(time,5): fn5,
+                                 tf.equal(time,6): fn6,
+                                 tf.equal(time,7): fn7,
+                                 tf.equal(time,8): fn8}, default=fn_default, exclusive=True)
 
                     #When you specify the axis of concat such a rank must exist! 
                     #Thus cannot specify axis=1 if the rank is 0!
 
-                    concat_base = tf.constant([[1.0 for i in range(self.vocab_size)]], dtype=tf.float64) 
-                    #concat base will specify vocab size at run time
+                    concat_base = tf.constant([[1.0 for i in range(self.vocab_size)]], dtype=tf.float64) #concat base will specify vocab size at run time
 
                     beam = tf.transpose(initial_outputs_ta.predicted_ids.concat())
 
@@ -339,17 +347,23 @@ class Model:
                     anti_lm_outputs = tf.while_loop(anti_lm_condition, anti_lm_body, 
                                     [concat_base, n_grams_tf, beam_pad, initial_beam_step, n_beams, time], 
                                     shape_invariants=[tf.TensorShape([None, self.vocab_size]), 
-                                                      n_grams_tf.get_shape(),
-                                                      beam_pad.get_shape(), 
-                                                      initial_beam_step.get_shape(), 
-                                                      n_beams.get_shape(), time.get_shape()],
-                                                      parallel_iterations=1)
+                                                      n_grams_tf.get_shape(), beam_pad.get_shape(), 
+                                                      initial_beam_step.get_shape(), n_beams.get_shape(), time.get_shape()])
 
                     anti_beam_probs = anti_lm_outputs[0][1:]
+                    
                     score = score + self.anti_lm_weight*tf.to_float(anti_beam_probs)
 
+                    return score
+
+                #length_penality_ = tf_helpers._length_penalty(sequence_lengths=sequence_lengths, penalty_factor=length_penalty_weight)
+
+                score = log_probs#/length_penality_
+
+                score = tf.cond(tf.equal(0, time), 
+                                            lambda : time_zero_anti_lm(score), lambda: time_not_zero_anti_lm(score))
+
                 return score
-            
             
             def step(time, outputs, state, inputs, finished, sequence_lengths):       
                 
@@ -374,22 +388,16 @@ class Model:
 
                 next_cell_state = nest.map_structure(self.inference_decoder._maybe_split_batch_beams, next_cell_state, 
                                      self.inference_decoder._cell.state_size)
+                
                 with tf.variable_scope('decoder'):
 
-                    cell_outputs = self.inference_decoder._output_layer(cell_outputs)
-                
+                    cell_outputs = self.inference_decoder._output_layer(cell_outputs)                
               
                 logits = cell_outputs
                 step_log_probs = tf.nn.log_softmax(logits)
                 step_log_probs = tf_helpers._mask_probs(step_log_probs, end_token, previously_finished)
 
-                #Here is where we will add the anti-language model at a later date
-                #total_probs = tf.expand_dims(state.log_probs, 2) + step_log_probs 
-                
-                #current_sequence
-                #sequence_probability = probSeq(['i', 'don', 't', 'want'], 0, n_grams[3], [len(n_grams[0])])
-                
-                total_probs = tf.expand_dims(state.log_probs, 2) + step_log_probs - 0.2 #* np.log(
+                total_probs = tf.expand_dims(state.log_probs, 2) + step_log_probs
 
                 vocab_size = logits.shape[-1].value or tf.shape(logits)[-1]
 
@@ -405,24 +413,20 @@ class Model:
 
                 new_prediction_lengths = (lengths_to_add + tf.expand_dims(prediction_lengths, 2))
   
-                time = tf.convert_to_tensor(time, name="time")
-                #scores = total_probs
-        
+                #Here we correct the total_score by the anti-lm prob(T)
                 def score_total_probs(total_probs):
                     return total_probs
             
-                scores = tf.cond(time < 2, true_fn=lambda: _get_scores(log_probs=total_probs,
-                         sequence_lengths=new_prediction_lengths,
-                          length_penalty_weight=0, time=time), false_fn=lambda: score_total_probs(total_probs) )
+                scores = tf.cond(time < self.anti_lm_max_step, 
+                                 true_fn=lambda: _get_scores(log_probs=total_probs,
+                                 sequence_lengths=new_prediction_lengths, length_penalty_weight=0, time=time), 
+                                 false_fn=lambda: score_total_probs(total_probs) )
                 
                 scores_shape = tf.shape(scores)
                 #Consider only 1 beam at the first step, as we are simply looking for the beam_width number of best
                 #tokens to begin with
                 scores_flat = tf.cond(time > 0, lambda: tf.reshape(scores, [self.batch_size, -1]), lambda: scores[:, 0])
-                
-                scores_flat = tf.cond(time > 0, lambda: scores_flat, 
-                                 lambda: tf_helpers.anti_lm_step_0(log_probs=scores_flat, vocab_size=self.vocab_size, l=0))
-
+     
                 num_available_beam = tf.cond(time > 0, lambda: tf.reduce_prod(scores_shape[1:]), lambda: tf.reduce_prod(scores_shape[2:]))
 
                 # Pick the next beams according to the specified successors function
@@ -512,7 +516,6 @@ class Model:
 
                 next_inputs = tf.cond(tf.reduce_all(finished), lambda: self.inference_decoder._start_inputs,
                               lambda: self.inference_decoder._embedding_fn(sample_ids))
-                #return time, outputs, state, inputs, finished, sequence_lengths
                 
                 outputs = nest.map_structure(lambda ta, out: ta.write(time, out),
                                       outputs, beam_search_output)
@@ -522,7 +525,7 @@ class Model:
                       tf.fill(tf.shape(sequence_lengths), time + 1),
                   sequence_lengths)
                 
-                return time+1, outputs, beam_search_state, next_inputs, finished, next_sequence_lengths#, anti_lm_weight
+                return time+1, outputs, beam_search_state, next_inputs, finished, next_sequence_lengths
                 
             #Initialize the decoder
             self.time = 0
@@ -589,13 +592,13 @@ class Model:
 
         self.decoder_cell = tf.contrib.rnn.MultiRNNCell(self.decoder_cell_list)
        
-        training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=self.decoder_train_inputs_embedded,
+        self.training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=self.decoder_train_inputs_embedded,
                                    sequence_length=self.decoder_train_length,
                                    time_major=False,
                                    name='training_helper')
         
         self.training_decoder = tf.contrib.seq2seq.BasicDecoder(cell=self.decoder_cell,
-                                                           helper=training_helper,
+                                                           helper=self.training_helper,
                                                            initial_state=self.decoder_initial_state, 
                                                            output_layer=self.output_layer)
         

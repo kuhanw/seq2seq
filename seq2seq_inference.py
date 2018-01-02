@@ -56,7 +56,7 @@ with tf.Session() as session:
         
         output_graph_def = tf.graph_util.convert_variables_to_constants(
         session, tf.get_default_graph().as_graph_def(), relevant_nodes)
-        frozen_model_name = args.freeze + '_' + '_'.join(['%s_%s' % (key, str(inf_model_params[key])) for key in inf_model_params.keys()]) + '.pb'        
+        frozen_model_name = args.freeze + '_' + '_'.join(sorted(['%s_%s' % (key, str(inf_model_params[key])) for key in inf_model_params.keys()])) + '.pb'        
         
         with tf.gfile.GFile(frozen_model_name, 'wb') as f:
             f.write(output_graph_def.SerializeToString())

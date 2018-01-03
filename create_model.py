@@ -151,11 +151,13 @@ class Model:
                                          name='Attention_Wrapper')        
        
         self.initial_state = [state for state in self.encoder_last_state]
+        
         #What if we made the initial state here all zeroes?
-        #self.initial_state[-1] = self.decoder_cell_list[-1].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
-        for i in range(len(self.initial_state)):
+        self.initial_state[-1] = self.decoder_cell_list[-1].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
+        
+        #for i in range(len(self.initial_state)):
             
-            self.initial_state[i] = self.decoder_cell_list[i].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
+        #    self.initial_state[i] = self.decoder_cell_list[i].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
 
         self.decoder_initial_state = tuple(self.initial_state)
 
@@ -196,8 +198,9 @@ class Model:
                  self.decoder_outputs_length_decode) = (tf.contrib.seq2seq.dynamic_decode(
                     decoder=self.inference_decoder,
                     output_time_major=False,
-                    #impute_finished=True,
-                    maximum_iterations=max_decode_step))
+                    impute_finished=False,
+                    maximum_iterations=max_decode_step,
+                   parallel_iterations=1))
            
             if self.beam_width>1:
                 self.decoder_pred_decode = tf.identity(self.decoder_outputs_decode.predicted_ids, name='decoder_pred_decode')
@@ -295,7 +298,7 @@ class Model:
                 def fn5(): return tf.constant(n_grams[5])
                 def fn6(): return tf.constant(n_grams[6])
                 def fn7(): return tf.constant(n_grams[7])
-                def fn7(): return tf.constant(n_grams[8])
+                def fn8(): return tf.constant(n_grams[8])
                 def fn_default(): return tf.constant(-1)
 
                 def time_zero_anti_lm(score):
@@ -316,7 +319,7 @@ class Model:
 
                     test_add_tile = tf.reshape(tf.tile(test_add, multiples=[self.beam_width]), shape=[1, self.beam_width, self.vocab_size])
 
-                    score = score + self.anti_lm_weight*tf.to_float(test_add_tile)
+                    score = score - self.anti_lm_weight*tf.to_float(test_add_tile)
 
                     return score
 
@@ -352,7 +355,7 @@ class Model:
 
                     anti_beam_probs = anti_lm_outputs[0][1:]
                     
-                    score = score + self.anti_lm_weight*tf.to_float(anti_beam_probs)
+                    score = score - self.anti_lm_weight*tf.to_float(anti_beam_probs)
 
                     return score
 
@@ -421,7 +424,7 @@ class Model:
                                  true_fn=lambda: _get_scores(log_probs=total_probs,
                                  sequence_lengths=new_prediction_lengths, length_penalty_weight=0, time=time), 
                                  false_fn=lambda: score_total_probs(total_probs) )
-                
+                #scores = total_probs
                 scores_shape = tf.shape(scores)
                 #Consider only 1 beam at the first step, as we are simply looking for the beam_width number of best
                 #tokens to begin with
@@ -506,26 +509,29 @@ class Model:
                               predicted_ids=next_word_ids,
                               parent_ids=next_beam_ids)
                 
+                #################################################################
                 #Here we define the returns
-                finished = beam_search_state.finished
-                next_finished = finished
+                decoder_finished = beam_search_state.finished
                 sample_ids = beam_search_output.predicted_ids
                 
                 #This part is most important, look up the new seq terms and take their embedding
                 #We pass that onto the decoder cell network in the next loop iteration
 
-                next_inputs = tf.cond(tf.reduce_all(finished), lambda: self.inference_decoder._start_inputs,
+                next_inputs = tf.cond(tf.reduce_all(decoder_finished), lambda: self.inference_decoder._start_inputs,
                               lambda: self.inference_decoder._embedding_fn(sample_ids))
-                
+                ##################################################################
+
                 outputs = nest.map_structure(lambda ta, out: ta.write(time, out),
                                       outputs, beam_search_output)
-               
+                
+                next_finished = tf.logical_or(decoder_finished, finished)
+
                 next_sequence_lengths = tf.where(
                   tf.logical_and(tf.logical_not(finished), next_finished),
                       tf.fill(tf.shape(sequence_lengths), time + 1),
                   sequence_lengths)
                 
-                return time+1, outputs, beam_search_state, next_inputs, finished, next_sequence_lengths
+                return time+1, outputs, beam_search_state, next_inputs, next_finished, next_sequence_lengths
                 
             #Initialize the decoder
             self.time = 0
@@ -554,11 +560,13 @@ class Model:
             
             self.final_outputs = nest.map_structure(lambda ta: ta.stack(), self.final_outputs_ta)
             self.final_sequence_lengths = self.decode_loop[5]
-            self.predicted_ids = beam_search_ops.gather_tree(
-                self.final_outputs.predicted_ids, self.final_outputs.parent_ids,
-                sequence_length=self.final_sequence_lengths)
-            #self.final_outputs, self.final_state = self.inference_decoder.finalize(self.final_outputs, 
-            #                                                                  self.final_state, self.final_sequence_lengths)
+            
+            #self.predicted_ids = beam_search_ops.gather_tree(
+             #   self.final_outputs.predicted_ids, self.final_outputs.parent_ids,
+              #  sequence_length=self.final_sequence_lengths)
+            
+            self.final_outputs, self.final_state = self.inference_decoder.finalize(self.final_outputs, 
+                                                                              self.final_state, self.final_sequence_lengths)
             
     def create_training_decoder(self):
 

@@ -10,11 +10,10 @@ import data_formatting
 import pandas as pd
 import numpy as np
 import tf_helpers
-n_grams = pickle.load(open('n_grams_test.pkl', 'rb'))
 
 class Model:
     
-    def __init__(self, params, mode, sequence_data=None):
+    def __init__(self, params, mode, sequence_data=None, ngram_model=None):
 
         self.params = params
         self.mode = mode
@@ -26,12 +25,14 @@ class Model:
         self.num_layers = params['num_layers']
         self.embedding_size = params['embedding_size']
         self.vocab_size = params['vocab_size']
-        self.beam_width = params['beam_width']
+        
+        #Inference parameters
+        self.beam_width = params['beam_width']        
         self.limit_decode_steps = params['limit_decode_steps']
-        #self.anti_lm = params['anti_lm']
+        self.anti_lm_weight = params['anti_lm_weight']
+        self.anti_lm_max_step = params['anti_lm_max_step']
 
-
-        if self.mode == 'train' or self.mode == 'debug':
+        if self.mode == 'train':
             
             self.minibatch_size = params['minibatch_size']
             self.n_threads = params['n_threads']
@@ -39,31 +40,27 @@ class Model:
             self.decoder_output_keep = params['decoder_output_keep']
             self.encoder_input_keep = params['encoder_input_keep']
             self.decoder_input_keep = params['decoder_input_keep']
-            self.anti_lm_weight = params['anti_lm_weight']
-            self.anti_lm_max_step = params['anti_lm_max_step']
             
-            if self.mode != 'debug':
-                print(self.mode)
-                self.create_queue(sequence_data)
-            
+            self.create_queue(sequence_data)            
             self.initialize_placeholders()
             self.create_embeddings()
             self.create_encoder()
-            if self.mode !='debug':
-                self.create_training_decoder()
-                self.create_training_module()            
-        
-            if self.mode == 'debug':
-                self.create_inference_decoder()
+            
+            self.create_training_decoder()
+            self.create_training_module()            
 
         if self.mode == 'infer':
-            
+                            
+            if self.anti_lm_weight!=-1 and ngram_model == None:
+                print ('Must specify language model for weighting!')
+                        
+            self.n_grams = ngram_model
+
             self.encoder_output_keep = 1
             self.decoder_output_keep = 1
             self.encoder_input_keep = 1
             self.decoder_input_keep = 1
             
-            #self.create_queue(sequence_data)
             self.initialize_placeholders()
             self.create_embeddings()
             self.create_encoder()
@@ -152,13 +149,8 @@ class Model:
        
         self.initial_state = [state for state in self.encoder_last_state]
         
-        #What if we made the initial state here all zeroes?
         self.initial_state[-1] = self.decoder_cell_list[-1].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
         
-        #for i in range(len(self.initial_state)):
-            
-        #    self.initial_state[i] = self.decoder_cell_list[i].zero_state(batch_size=tf.shape(self.encoder_outputs)[0], dtype=tf.float32)
-
         self.decoder_initial_state = tuple(self.initial_state)
 
         self.decoder_cell = tf.contrib.rnn.MultiRNNCell(self.decoder_cell_list)
@@ -187,19 +179,19 @@ class Model:
                                                                            beam_width=self.beam_width,
                                                                            output_layer=self.output_layer)
             
-        if self.limit_decode_steps == True:
-            max_decode_step = tf.reduce_max(self.encoder_inputs_length) + 5
+        if self.limit_decode_steps:
+            self.max_decode_step = self.limit_decode_steps # + tf.reduce_max(self.encoder_inputs_length)
         else:
-            max_decode_step = None
+            self.max_decode_step = None
             
-        if self.mode!='debug':
+        if self.anti_lm_weight == -1:
             
             (self.decoder_outputs_decode, self.decoder_last_state_decode,
                  self.decoder_outputs_length_decode) = (tf.contrib.seq2seq.dynamic_decode(
                     decoder=self.inference_decoder,
                     output_time_major=False,
                     impute_finished=False,
-                    maximum_iterations=max_decode_step,
+                    maximum_iterations=self.max_decode_step,
                    parallel_iterations=1))
            
             if self.beam_width>1:
@@ -207,7 +199,7 @@ class Model:
             else:
                 self.decoder_pred_decode = tf.argmax(self.decoder_outputs_decode.rnn_output, axis=-1, name='decoder_pred_decode')
 
-        elif self.mode=='debug':
+        else:
             
             def _shape(batch_size, from_shape):
                 if not isinstance(from_shape, tf.TensorShape):
@@ -232,7 +224,6 @@ class Model:
       
                 def grab_probs(n_grams_tf, y_equal_2): 
 
-                    #print ('Grab Probabilities')
                     y_args = tf.where(y_equal_2)
 
                     #Grab the n_gram sequences that are matched
@@ -256,10 +247,10 @@ class Model:
                     return tf.reshape(test_add_result, [1, self.vocab_size])
 
                 def dump_zeros(n_grams_tf, y_equal_2): 
-                    #print ('No matches found')
+
                     return tf.constant([[0. for i in range(self.vocab_size)]], dtype=tf.float64)
 
-                scatter_base = tf.constant([self.vocab_size]) #Size of dict for scatter base will specify at run time
+                scatter_base = tf.constant([self.vocab_size]) #Size of dict for scatter base
 
                 #Find where current beam matches n_gram sequence up to current seq pos, cast as int
                 y_test = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))
@@ -291,14 +282,14 @@ class Model:
                 The scores normalized by the length_penalty.
                 """
 
-                def fn1(): return tf.constant(n_grams[1])
-                def fn2(): return tf.constant(n_grams[2])
-                def fn3(): return tf.constant(n_grams[3])
-                def fn4(): return tf.constant(n_grams[4])
-                def fn5(): return tf.constant(n_grams[5])
-                def fn6(): return tf.constant(n_grams[6])
-                def fn7(): return tf.constant(n_grams[7])
-                def fn8(): return tf.constant(n_grams[8])
+                def fn1(): return tf.constant(self.n_grams[1])
+                def fn2(): return tf.constant(self.n_grams[2])
+                def fn3(): return tf.constant(self.n_grams[3])
+                def fn4(): return tf.constant(self.n_grams[4])
+                def fn5(): return tf.constant(self.n_grams[5])
+                def fn6(): return tf.constant(self.n_grams[6])
+                def fn7(): return tf.constant(self.n_grams[7])
+                def fn8(): return tf.constant(self.n_grams[8])
                 def fn_default(): return tf.constant(-1)
 
                 def time_zero_anti_lm(score):
@@ -496,7 +487,6 @@ class Model:
                                   gather_shape=[self.batch_size * self.beam_width, -1]), next_cell_state)
                
                 #We have to transform back into beamdecoder class before passing back as the input and out must have same struct
-                #return beam_search_output, beam_search_state, next_inputs, finished
             
                 beam_search_state = tf.contrib.seq2seq.BeamSearchDecoderState(
                              cell_state=next_cell_state,
@@ -525,7 +515,11 @@ class Model:
                                       outputs, beam_search_output)
                 
                 next_finished = tf.logical_or(decoder_finished, finished)
-
+                
+                if maximum_iterations is not None:
+                    next_finished = tf.logical_or(
+                        next_finished, time + 1 >= maximum_iterations)
+                
                 next_sequence_lengths = tf.where(
                   tf.logical_and(tf.logical_not(finished), next_finished),
                       tf.fill(tf.shape(sequence_lengths), time + 1),
@@ -534,6 +528,12 @@ class Model:
                 return time+1, outputs, beam_search_state, next_inputs, next_finished, next_sequence_lengths
                 
             #Initialize the decoder
+            
+            if self.max_decode_step is not None:
+                maximum_iterations = tf.convert_to_tensor(self.max_decode_step, dtype=tf.int32, name='maximum_iterations')
+            else:
+                maximum_iterations = None
+                
             self.time = 0
             
             self.finished, self.first_inputs, self.initial_state = self.inference_decoder.initialize()
@@ -542,6 +542,10 @@ class Model:
             initial_state = self.initial_state
             initial_inputs = self.first_inputs
             initial_finished = self.finished
+            
+            if maximum_iterations is not None: 
+                initial_finished = tf.logical_or(initial_finished, 0 >= maximum_iterations)
+            
             initial_outputs_ta = nest.map_structure(_create_ta, self.inference_decoder.output_size,
                                                     self.inference_decoder.output_dtype)
             
@@ -581,9 +585,7 @@ class Model:
             cell = tf.contrib.rnn.DropoutWrapper(self.create_cell(), input_keep_prob=self.decoder_input_keep, 
                                                             output_keep_prob=self.decoder_output_keep)
             self.decoder_cell_list.append(cell)
-
-        #self.decoder_initial_state = self.encoder_last_state
-        
+       
         #Last layer of decoders is wrapped in attention
         self.decoder_cell_list[-1] = tf.contrib.seq2seq.AttentionWrapper(
                                          cell=self.decoder_cell_list[-1],
@@ -646,27 +648,24 @@ class Model:
     def initialize_placeholders(self):
             
         #Create handles for encoder and decoders
-        if self.mode == 'infer' or self.mode=='debug':
+        if self.mode == 'infer':
             
             self.encoder_inputs = tf.placeholder(shape=(None, None),
                         dtype=tf.int32, name='encoder_inputs')
 
             self.encoder_inputs_length = tf.placeholder(shape=(None,),
                         dtype=tf.int32, name='encoder_inputs_length')
-
-        self.output_layer = Dense(self.vocab_size, name='output_projection')
-
+            
         self.batch_size = tf.shape(self.encoder_inputs)[0]
 
-        if self.mode == 'train' or self.mode=='debug':
-            
-            if self.mode == 'debug':
-            # required for training, not required for testing
-                self.decoder_targets = tf.placeholder(shape=(None, None),
-                           dtype=tf.int32, name='decoder_targets')
+        self.output_layer = Dense(self.vocab_size, name='output_projection')        
 
-                self.decoder_targets_length = tf.placeholder(shape=(None,),
-                          dtype=tf.int32, name='decoder_targets_length')
+        if self.mode == 'train':
+            #self.decoder_targets = tf.placeholder(shape=(None, None),
+            #                                      dtype=tf.int32, name='decoder_targets')
+
+            #self.decoder_targets_length = tf.placeholder(shape=(None,),
+            #                                             dtype=tf.int32, name='decoder_targets_length')
 
             #Make EOS and PAD matrices to concatenate with targets
                 
@@ -679,11 +678,13 @@ class Model:
             self.decoder_train_length = self.decoder_targets_length + 1
             
             #Don't think i really need this line here...
-            self.decoder_train_targets = tf.concat([self.decoder_targets, PAD_SLICE], axis=1, name='decoder_train_targets')
+            #self.decoder_train_targets = tf.concat([self.decoder_targets, PAD_SLICE], axis=1, name='decoder_train_targets')
+            self.decoder_train_targets = self.decoder_targets
 
             #self.max_decoder_length = tf.reduce_max(self.decoder_train_length)
             
             self.max_decoder_length = tf.shape(self.decoder_train_targets)[1]
+            #self.max_decoder_length = tf.shape(self.decoder_targets)[1]
                                                                                               
     def create_embeddings(self):
 
@@ -697,6 +698,6 @@ class Model:
         #Map each input unit to a column in the embedding matrix
         self.encoder_inputs_embedded = tf.nn.embedding_lookup(self.embedding_matrix, self.encoder_inputs)
 
-        if self.mode == 'train' or self.mode=='debug':
+        if self.mode == 'train':
 
             self.decoder_train_inputs_embedded = tf.nn.embedding_lookup(self.embedding_matrix, self.decoder_train_inputs)

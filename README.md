@@ -89,12 +89,14 @@ The original paper was unclear as to how they generated the P(T) during decoding
 
 Here are some results,
 
-Markdown | Less 
+Target Sequence | Decoder 
 --- | --- 
-*Still* | `renders` 
-1 | 2 
+'thank', 'you', 'for', 'your', 'support'| No Anti-LM
+'is', 'a', 'great', 'idea' | Lambda=0.8, gamma=1
+'thank', 'bet', 'i', 'love', 'you', '<eos>' | Lambda=0.8, gamma=4
+'thank', 'for', 'share', 'i', 'appreci', 'it' | Lambda=0.1, gamma=4
 
-You can see even with our simple model, the idea is sound and returns interesting results.
+You can see even with our simple model, the idea is sound and can return interesting results. It is interesting to note, when we correct only the first token (gamma=1), the entire meaning of the entire output is changed, as would be expected, while adding corrections to the first four steps return more diverse variations of the original response.
 
 There are a couple of flaws to this method of constructing P(T). 
 

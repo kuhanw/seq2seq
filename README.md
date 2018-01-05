@@ -41,13 +41,13 @@ As an exercise I wanted to see if it was possible to incorporate a language mode
 
 ### Decoding
 
-The goal of decoding in a seq2seq model is to find the the target sequence (T) given the source sequence (S), i.e. max(P(T|S)) for all possible T's. T is a sequence of tokens, in abstract, of unknown length.
+The goal of decoding in a seq2seq model is to find the the target sequence (T) given the source sequence (*S*), i.e. *max(P(T|S))* for all possible *T*'s. Where *T* is a sequence of tokens of unknown length.
 
-In a sequence to sequence model inference is performed by passing the final state of the encoder input to the decoder network and iteratively generated the output sequence.
+In a seq2seq model inference is performed by passing the final state of the encoder input to the decoder network and iteratively generating the output sequence.
 
 Practically this means we begin by initializing the decoder,
 
-  `self.finished, self.first_inputs, self.initial_state = self.inference_decoder.initialize()`
+  `finished, first_inputs, initial_state = inference_decoder.initialize()`
 
 which provides the initial input and state from the last state of the encoder, at this time we say we are at step 0.
 
@@ -57,29 +57,33 @@ The `initial_state` represents the decoder network in terms of the hidden and ce
 
 The `cell_state` represents the vocabulary at a given time step. We can pass the `cell_state` (which is of size [batch_size, beam_width, n_cells] through a fully connected dense layer with size equal to the vocabulary size to obtain a representation of [batch_size, beam_width, vocab_size], if we apply a softmax layer to this output, the elements of the output can then be interpreted as the probability of emission for each vocabulary term.
 
-In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representtation of it is passed along with the cell state (i.e. hidden state,cell state and attention states, hereafter called cell state) back into the decoder network, generating a new network cell state and a output. If we encounter the special end token, <EOS>, we terminate the decoding. Otherwise we continuously repeat the process.
+In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representation of it is passed along with the current `cell_state` back into the decoder network, 
+
+  `cell_outputs, next_cell_state = inference_decoder.decoder._cell(next_inputs, current_cell_state)`
+
+generating a new network cell state and a output. If we encounter the special end token, <EOS>, we terminate the decoding. Otherwise we continuously repeat the process.
 
 ## Selecting the "Best" Token
 
 The rank of best to worst tokens at each time step can follow a number of heuristics. 
 
-As the vocabulary size is typically large, it is computationally too expensive to perform a full search and enumerate all sequence combinations to find the one that maximizes P(T|S). During greedy decoding at each state we simply select the "best" token according to the softmax of each vocabulary term.
+As the vocabulary size is typically large, it is computationally too expensive to perform a full search and enumerate all sequence combinations to find the one that maximizes *P(T|S)*. During greedy decoding at each state we simply select the "best" token according to the softmax of each vocabulary term.
 
-An alternatie is beam search, at each time step we keep the top N best sequence "beams" according to a heuristic (i.e. sum of softmax of tokens), thus creating a truncated breadth first search. A beam search decoder with a beam size of 1 is a greedy decoder, if the beam size = vocabulary size is equivalent to searching the whole space.
+An alternatie is beam search, at each time step we keep the top *N* best sequences according to a heuristic (i.e. sum of softmax of tokens), creating a truncated breadth first search. A beam search decoder with a beam size of 1 is a greedy decoder, if the beam width, *N* is of the vocabulary size it is equivalent to searching the whole space.
 
-Regardless, at each step we have to order the vocabulary by a ranking method. For a large corpus, there will typically be a overabundance of common replies and phrases and tokens. Using just the decoder output a typical seq2seq model will be biased to emitting these sequences.
+Regardless, at each step we have to order the vocabulary by a ranking method. For a large corpus, there will typically be a overabundance of common replies and phrases and tokens. Using just the decoder output a typical seq2seq model can be biased towards emitting common sequences ('Thank you, You are welcome, I don't know'). 
 
 ## Anti-LM
 
-Instead, we will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce an anti-Language model.  Anti-LM being a fancy phrase to mean we will somehow tally up the most common sequences in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic replies.
+We will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce an anti-Language model.  Anti-LM being a fancy phrase to mean we will somehow tally up the most common sequences in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic replies.
 
-Practically, this means modifying the Tensorflow beamsearch decoder to rank the decoder outputs by a new heuristic,
+Practically, this means modifying the Tensorflow beam search decoder, `tf.contrib.seq2seq.BeamSearchDecoder`, to rank the decoder outputs by a new heuristic,
 
 *Score = log(P(T|S) - L \* log(P(T))*,
 
-where *P(T|S)* is the original decoder Score, to which we now subtract the probability of the sequence, T. Lambda is a strength parameter to tune how strong we want this Anti-LM effect to be. 
+where *P(T|S)* is the original decoder *Score*, to which we now subtract the probability of the sequence, T. *L* is a strength parameter to tune how strong we want this Anti-LM effect to be. 
 
-Technically, we dive into the Tensorflow API code and modify the scoring function of the beamsearch to accept an addition parameter so that at each step the decoder determine the beams according to our new equation. For practical and technical purposes, we will restrict the correction only up to nth step in the decoding. 
+Technically, we dive into the Tensorflow API code and modify the scoring function of the beam search to accept an addition parameter so that at each step the decoder determines the beams according to our new scoring function. For practical and technical reasons, see equation (12) of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), we will restrict the correction only up to nth step in the decoding. We will control this via parameter *y*, sequence steps smaller than *y* will be corrected, steps beyond will remain untouched.
 
 ## Generating P(T)
 
@@ -90,29 +94,33 @@ Here are some results,
 Target Sequence | Decoder 
 --- | --- 
 'thank', 'you', 'for', 'your', 'support'| No Anti-LM
-'is', 'a', 'great', 'idea' | Lambda=0.8, gamma=1
-'thank', 'bet', 'i', 'love', 'you', '<eos>' | Lambda=0.8, gamma=4
-'thank', 'for', 'share', 'i', 'appreci', 'it' | Lambda=0.1, gamma=4
+'is', 'a', 'great', 'idea' | *L*=0.8, *y*=1
+'thank', 'bet', 'i', 'love', 'you', '<eos>' | *L*=0.8, *y*=4
+'thank', 'for', 'share', 'i', 'appreci', 'it' | *L*=0.1, *y*=4
 
-You can see even with our simple model, the idea is sound and can return interesting results. It is interesting to note, when we correct only the first token (gamma=1), the entire meaning of the entire output is changed, as would be expected, while adding corrections to the first four steps return more diverse variations of the original response.
+You can see even with our simple model, the idea is sound and can return interesting results. It is interesting to note, when we correct only the first token (*y*=1), the entire meaning of the entire output is changed, while adding corrections to the first four steps return more diverse variations of the original response.
 
-There are a couple of flaws to this method of constructing P(T). 
+## Future Steps
 
-As "n" grows the permutations rapidly grow so it becomes computationally unfeasible to store such massive tables in memory during run time. Secondly, in any real world situation the decoder will encounter input sequences that were never presented in the training corpus thus our naive n-gram model states P(T)=0. 
+There are a couple of flaws to this method of constructing *P(T)* and implementation. From a technical, coding perspective I went through a lot of contortions and work to load a precomputed table at run time for decoding in Tensorflow. Much of this comes down to the functional programming nature of Tensorflow. As a Tensorflow novice, it was an immensely useful learning experience, but may not be technically elegant.
 
-The first problem can be overcome by using better data structures (I am keeping the models on disk as lists) for storage. Tries can be a good solution []. In addition, we can redefine P(T) to be predicated only m prior tokens instead of the full sequence, 
+Conceptually, as the "n" of the n-gram model grows the sequence permutations rapidly grow so it becomes computationally unfeasible to store such massive tables in memory during run time. In addition, any real world situation the decoder will encounter input sequences that were never presented in the training corpus thus our naive n-gram model states *P(T)=0*. 
 
-P(T) = Prod( equation).
+The first problem can be overcome by applying smarter data structures for storage and during computation. I have not had time to do anny implementation but tries can be a natural solution to storing massive n-gram models, [http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf]. We can additionally redefine P(T) to be predicated only *m* prior tokens instead of the full sequence, 
+
+P(T) = P(t<sup>something</sup>)
+
+This will have the effect of dramatically controlling and bounding our n-gram tables.
 
 For the latter case we can apply [smoothing](https://en.wikipedia.org/wiki/Good%E2%80%93Turing_frequency_estimation) to introduce non-zero probabilities for new sequences.
 
 ### To do list
 
   - Implement a bidirectional encoder
-  - Implement anti-language model to increase the diversity of the decoder inference responses (Here is an implementation: https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm)
+  - Implement anti-lm for batch decoding
   - <s>Clean up API code to use frozen models instead of restoring from checkpoint</s>
   - <s>Clean up notebooks</s>
-  - Clean up text preprocessing code
+  - <s>Clean up text preprocessing code</s>
 
 ### References and Readings
 

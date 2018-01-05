@@ -37,11 +37,11 @@ A simple API serving the model will be added at a later date.
 
 ### Introduction
 
-Once I had familiarized myself with the seq2seq API and its basic functionality, as an exercise I wanted to see if I can a step further and implement some ideas from research papers that do not exist as a ready baked APIs. 
+Once I had familiarized myself with the seq2seq API and its basic functionality, as an exercise I wanted to see if I can go a step further and implement some ideas from research papers that do not exist as a ready baked APIs. 
 
 I was inspired by this, [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), on suppressing generic responses in seq2seq decoder responses. 
 
-I wanted to build my implementation directly into Tensorflow as opposed to performing the decoding externally in python as in [here](https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm). In order to do this, I set out on a long journey, beginning with understanding how RNN decoders work...
+I wanted to build my implementation directly into Tensorflow as opposed to performing the decoding externally in python as in [here](https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm). In order to do this, I set out on a long journey, beginning with understanding how exactly RNN decoders work...
 
 ### Decoding
 

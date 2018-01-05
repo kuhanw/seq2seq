@@ -61,7 +61,7 @@ The `initial_state` represents the decoder network in terms of the hidden and ce
 
 The `cell_state` represents the vocabulary at a given time step. We can pass the `cell_state` (which is of size [batch_size, beam_width, n_cells] through a fully connected dense layer with size equal to the vocabulary size to obtain a representation of [batch_size, beam_width, vocab_size], if we apply a softmax layer to this output, the elements of the output can then be interpreted as the probability of emission for each vocabulary term.
 
-In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representation, `next_inputs = decoder._embedding_fn(token_id)`, of it is passed along with the current `cell_state` back into the decoder network, 
+In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representation, `next_inputs = inference_decoder._embedding_fn(token_id)`, of it is passed along with the current `cell_state` back into the decoder network, 
 
   `cell_outputs, next_cell_state = inference_decoder.decoder._cell(next_inputs, current_cell_state)`
 

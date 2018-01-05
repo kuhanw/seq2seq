@@ -57,7 +57,7 @@ The `initial_state` represents the decoder network in terms of the hidden and ce
 
 The `cell_state` represents the vocabulary at a given time step. We can pass the `cell_state` (which is of size [batch_size, beam_width, n_cells] through a fully connected dense layer with size equal to the vocabulary size to obtain a representation of [batch_size, beam_width, vocab_size], if we apply a softmax layer to this output, the elements of the output can then be interpreted as the probability of emission for each vocabulary term.
 
-In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representation of it is passed along with the current `cell_state` back into the decoder network, 
+In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representation, `next_inputs = decoder._embedding_fn(token_id)`, of it is passed along with the current `cell_state` back into the decoder network, 
 
   `cell_outputs, next_cell_state = inference_decoder.decoder._cell(next_inputs, current_cell_state)`
 
@@ -102,17 +102,19 @@ You can see even with our simple model, the idea is sound and can return interes
 
 ## Future Steps
 
-There are a couple of flaws to this method of constructing *P(T)* and implementation. From a technical, coding perspective I went through a lot of contortions and work to load a precomputed table at run time for decoding in Tensorflow. Much of this comes down to the functional programming nature of Tensorflow. As a Tensorflow novice, it was an immensely useful learning experience, but may not be technically elegant.
+There are a couple of flaws to this method of constructing *P(T)* and implementation. From a technical, coding perspective I went through a lot of contortions to load a precomputed table at run time for decoding in Tensorflow. Much of this comes down to the functional programming nature of Tensorflow. As a Tensorflow novice, it was an immensely useful learning experience, but may not be technically elegant.
 
-Conceptually, as the "n" of the n-gram model grows the sequence permutations rapidly grow so it becomes computationally unfeasible to store such massive tables in memory during run time. In addition, any real world situation the decoder will encounter input sequences that were never presented in the training corpus thus our naive n-gram model states *P(T)=0*. 
+Conceptually, as the "n" of the n-gram model grows the sequence permutations rapidly grow so it becomes computationally unfeasible to store such massive tables in memory during run time. In addition, in any real world situation the decoder will encounter input sequences that were never presented in the training corpus, our naive n-gram model would then state *P(T)=0*. 
 
-The first problem can be overcome by applying smarter data structures for storage and during computation. I have not had time to do anny implementation but tries can be a natural solution to storing massive n-gram models, [http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf]. We can additionally redefine P(T) to be predicated only *m* prior tokens instead of the full sequence, 
+The first problem can be overcome by applying smarter data structures for storage and during computation. I have not had time to do any implementation but tries can be a natural solution to storing massive n-gram models, [http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf]. We can additionally redefine *P(T)* to be predicated only *m* prior tokens instead of the full sequence, 
 
-P(T) = P(t<sup>something</sup>)
+P(T) = P(t<sub>n</sub>) P(t<sub>n-1</sub>) P(t<sub>n-2</sub>)... P(t<sub>1</sub>) ~ P(t<sub>n</sub>) P(t<sub>n-1</sub>) P(t<sub>n-2</sub>)... P(t<sub>n-m</sub>), 
 
-This will have the effect of dramatically controlling and bounding our n-gram tables.
+for *n=[1..Sequence Length]*, This will have the effect of dramatically controlling and bounding our n-gram tables.
 
-For the latter case we can apply [smoothing](https://en.wikipedia.org/wiki/Good%E2%80%93Turing_frequency_estimation) to introduce non-zero probabilities for new sequences.
+For the latter case we can apply smoothing to introduce non-zero probabilities for new sequences. The easiest and most naive approach is simply to add 1 to unknown sequences. More advance and sophisticated methods have readily implemented avaliablity in [NLTK](http://www.nltk.org/_modules/nltk/probability.html).
+
+Technically the challenge is to implement these ideas in the Tensorflow framework in a elegant and computational efficient way!
 
 ### To do list
 
@@ -123,6 +125,8 @@ For the latter case we can apply [smoothing](https://en.wikipedia.org/wiki/Good%
   - <s>Clean up text preprocessing code</s>
 
 ### References and Readings
+
+These are some of the tutorials and implementations of seq2seq that I found most useful.
 
 - https://github.com/ematvey/tensorflow-seq2seq-tutorials, these jupyter notebooks are what got me started when I was starting from zero and did not know much about Tensorflow or seq2seq. Note the final advance notebook with attention is using the old Tensorflow 1.0 API.
 - A more fleshed out and advance implementation in Tensorflow 1.3 which I based my implementation on. Reverse engineering this code really helped me understand the core mechanics and syntax of Tensorflow, https://github.com/JayParks/tf-seq2seq.

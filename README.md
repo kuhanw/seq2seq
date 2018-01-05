@@ -33,11 +33,58 @@ where
   
 A simple API serving the model will be added at a later date.
 
-### Decoding and Language Models
+## Decoding and Language Models
 
-## Introduction
+### Introduction
 
 As an exercise I wanted to see if it was possible to incorporate a language model based on some a priori information about the corpus into my seq2seq model. I was inspired by this [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055). I wanted to build my implementation directly into Tensorflow as opposed to performing the decoding externally in python as in [here](https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm). In order to do this, I set out on a long journey, beginning with understanding how decoders work...
+
+### Decoding
+
+The goal of decoding in a seq2seq model is to find the the target sequence (T) given the source sequence (S), i.e. max(P(T|S)) for all possible T's. T is a sequence of tokens, in abstract, of unknown length.
+
+In a sequence to sequence model inference is performed by passing the final state of the encoder input to the decoder network and iteratively generated the output sequence.
+
+Practically this means we begin by initializing the decoder,
+
+  `self.finished, self.first_inputs, self.initial_state = self.inference_decoder.initialize()`
+
+which provides the initial input and state from the last state of the encoder, at this time we say we are at step 0.
+
+The `first_input` is of dimension [batch_size, beam_width, embedding_size], representing the embedded representation of the first "token" (in this case, from the encoder).
+
+The `initial_state` represents the decoder network in terms of the hidden and cell states of the LSTM and the attention states, at step 0 these are initialized to zero.
+
+The cell states represents the vocabulary at a given time step. We can pass the cell state (which is of size [batch_size, beam_width, n_cells] through a fully connected dense layer with size equal to the vocabulary size to obtain a representation of [batch_size, beam_width, vocab_size], if we apply a softmax layer to this output, the elements of the output can then be interpreted as the probability of emission for each vocabulary term.
+
+In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representtation of it is passed along with the cell state (i.e. hidden state,cell state and attention states, hereafter called cell state) back into the decoder network, generating a new network cell state and a output. 
+
+The output is "densified" and from it the optimal next token is selected, if it is the special end token, <EOS>, we terminate the decoding and finish. Otherwise we do an embedding lookup of the token and pass it back through the decoder network along with the current state and repeat the process.
+
+## Selecting the "Best" Token
+
+The rank of best to worst tokens at each time step can follow a number of heuristics. 
+
+As the vocabulary size is typically large, it is computationally too expensive to perform a full search and enumerate all sequence combinations to find the one that maximizes P(T|S). During greedy decoding at each state we simply select the "best" token according to the softmax of each vocabulary term.
+
+An alternatie is beam search, at each time step we keep the top N best sequence "beams" according to a heuristic (i.e. sum of softmax of tokens), thus creating a truncated breadth first search. A beam search decoder with a beam size of 1 is a greedy decoder, if the beam size = vocabulary size is equivalent to searching the whole space.
+
+Regardless, at each step we have to order the vocabulary by a ranking method. For a large corpus, there will typically be a overabundance of common replies and phrases and tokens. Using just the decoder output a typical seq2seq model will be biased to emitting these sequences.
+
+## Anti-LM
+
+Instead, we will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce anti-Language model. This Anti-LM is a fancy phrase to mean, we will somehow tally up the most common sequences in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic replies.
+
+Practically this means modifying the Tensorflow beamsearch decoder to rank the decoder outputs by a new heuristic,
+
+log(P(T|S) - lambda P(T),
+
+where P(T|S) is the original decoder output, to which we now subtract the probability of the sequence, T. Lambda is a strength parameter to tune how strong we want this Anti-LM effect to be. 
+
+Technically, we dive into the Tensorflow API code and modify the scoring function of the beamsearch to accept an addition parameter so that at each step the decoder determine the beams according to our new equation. For practical and technical purposes, we will restrict the correction only up to nth step in the decoding. 
+
+## Generating P(T)
+
 
 
 ### To do list

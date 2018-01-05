@@ -53,7 +53,7 @@ class Model:
                             
             if self.anti_lm_weight!=-1 and ngram_model == None:
                 print ('Must specify language model for weighting!')
-                        
+                #exit
             self.n_grams = ngram_model
 
             self.encoder_output_keep = 1
@@ -226,21 +226,18 @@ class Model:
 
                     y_args = tf.where(y_equal_2)
 
-                    #Grab the n_gram sequences that are matched
                     y_diff_gather = tf.gather(n_grams_tf, y_args)
-                    #Take the last token in each sequence and count their unique occurrences
 
-                    last_token_pos = tf.shape(y_diff_gather)[-1]
+                    last_token_ids = y_diff_gather[:,0][:,-2]
 
-                    y_last_token = y_diff_gather[:,0][:,last_token_pos-1]
-                    y_last_token_unique = tf.unique_with_counts(y_last_token)
+                    indices = tf.reshape(last_token_ids, [tf.shape(last_token_ids)[0], 1])
 
-                    total_count = tf.reduce_sum(y_last_token_unique.count)
+                    last_token_counts = y_diff_gather[:,0][:,-1]
 
-                    indices = tf.reshape(y_last_token_unique.y, [tf.shape(y_last_token_unique.y)[0], 1])
+                    total_count = tf.reduce_sum(last_token_counts)
 
                     test_add_result = tf.scatter_nd(indices=indices, 
-                                updates=y_last_token_unique.count, shape=scatter_base)/total_count
+                                updates=last_token_counts, shape=scatter_base)/total_count
 
                     test_add_result = tf.log(test_add_result + 10e-10)
 
@@ -255,9 +252,7 @@ class Model:
                 #Find where current beam matches n_gram sequence up to current seq pos, cast as int
                 y_test = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))
                 #Reduce across the length of the beam 
-                y_test_reduce_sum = tf.reduce_sum(y_test, axis=1)
-
-                y_empty = tf.reduce_sum(y_test_reduce_sum)
+                y_test_reduce_sum = tf.reduce_sum(y_test[:,:current_beam_step], axis=1) 
 
                 #Find args where the beam is matched to the n_gram combinations
                 y_equal_2  = tf.equal(current_beam_step, y_test_reduce_sum)
@@ -282,28 +277,32 @@ class Model:
                 The scores normalized by the length_penalty.
                 """
 
-                def fn1(): return tf.constant(self.n_grams[1])
-                def fn2(): return tf.constant(self.n_grams[2])
-                def fn3(): return tf.constant(self.n_grams[3])
-                def fn4(): return tf.constant(self.n_grams[4])
-                def fn5(): return tf.constant(self.n_grams[5])
-                def fn6(): return tf.constant(self.n_grams[6])
-                def fn7(): return tf.constant(self.n_grams[7])
-                def fn8(): return tf.constant(self.n_grams[8])
-                def fn_default(): return tf.constant(-1)
+                def fn1(): return tf.constant(self.n_grams[1], dtype=tf.int32)
+                def fn2(): return tf.constant(self.n_grams[2], dtype=tf.int32)
+                def fn3(): return tf.constant(self.n_grams[3], dtype=tf.int32)
+                #def fn4(): return tf.constant(self.n_grams[4], dtype=tf.int32)
+                #def fn5(): return tf.constant(self.n_grams[5], dtype=tf.int32)
+                #def fn6(): return tf.constant(self.n_grams[6], dtype=tf.int32)
+                #def fn7(): return tf.constant(self.n_grams[7], dtype=tf.int32)
+                #def fn8(): return tf.constant(self.n_grams[8], dtype=tf.int32)
+                def fn_default(): return tf.constant(-1, dtype=tf.int32)
 
                 def time_zero_anti_lm(score):
-                    n_grams_tf = tf.constant(n_grams[0])
+                    
+                    n_grams_tf = tf.constant(self.n_grams[0], dtype=tf.int32)
+                    
                     scatter_base = tf.constant([self.vocab_size]) #Size of dict for scatter base will specify at run time
 
-                    y_unique_with_counts = tf.unique_with_counts(tf.reshape(n_grams_tf, [1, tf.shape(n_grams_tf)[0]])[0])
+                    token_counts = n_grams_tf[:,1]
 
-                    total_count = tf.reduce_sum(y_unique_with_counts.count)
+                    total_count = tf.reduce_sum(token_counts)
+                    
+                    token_ids = n_grams_tf[:,0]
 
-                    indices = tf.reshape(y_unique_with_counts.y, [tf.shape(y_unique_with_counts.y)[0], 1])
+                    indices = tf.reshape(token_ids, [tf.shape(token_ids)[0], 1])
 
                     test_add = tf.scatter_nd(indices=indices, 
-                                updates=y_unique_with_counts.count, shape=scatter_base)/total_count
+                                updates=token_counts, shape=scatter_base)/total_count
 
                     #Add small value for numerically stability
                     test_add = tf.log(test_add + 10e-10)    
@@ -316,14 +315,15 @@ class Model:
 
                 def time_not_zero_anti_lm(score):
                     #No anti-lm correction past 8th sequence position at most
-                    n_grams_tf = tf.case({tf.equal(time,1): fn1, 
+                    n_grams_tf = tf.case(
+                                {tf.equal(time,1): fn1, 
                                  tf.equal(time,2): fn2,
-                                 tf.equal(time,3): fn3,
-                                 tf.equal(time,4): fn4,
-                                 tf.equal(time,5): fn5,
-                                 tf.equal(time,6): fn6,
-                                 tf.equal(time,7): fn7,
-                                 tf.equal(time,8): fn8}, default=fn_default, exclusive=True)
+                                 tf.equal(time,3): fn3}, default=fn_default, exclusive=True)
+                                # tf.equal(time,4): fn4,
+                                # tf.equal(time,5): fn5,
+                                 #tf.equal(time,6): fn6,
+                                # tf.equal(time,7): fn7,
+                                # tf.equal(time,8): fn8}, default=fn_default, exclusive=True)
 
                     #When you specify the axis of concat such a rank must exist! 
                     #Thus cannot specify axis=1 if the rank is 0!
@@ -332,9 +332,9 @@ class Model:
 
                     beam = tf.transpose(initial_outputs_ta.predicted_ids.concat())
 
-                    beam_pad = tf.pad(beam, [[0, 0], [0, 1]], mode='CONSTANT', constant_values=0)
+                    beam_pad = tf.pad(beam, [[0, 0], [0, 2]], mode='CONSTANT', constant_values=0)
 
-                    initial_beam_step = tf.constant(0)  #This starting the loop from the first beam
+                    initial_beam_step = tf.constant(0)  #This starts the loop from the first beam
 
                     n_beams = tf.constant(self.beam_width) #will specify at run time
 
@@ -407,14 +407,16 @@ class Model:
 
                 new_prediction_lengths = (lengths_to_add + tf.expand_dims(prediction_lengths, 2))
   
-                #Here we correct the total_score by the anti-lm prob(T)
                 def score_total_probs(total_probs):
                     return total_probs
-            
+        
+                #Here we correct the total_score by the anti-lm prob(T)
+
                 scores = tf.cond(time < self.anti_lm_max_step, 
                                  true_fn=lambda: _get_scores(log_probs=total_probs,
                                  sequence_lengths=new_prediction_lengths, length_penalty_weight=0, time=time), 
                                  false_fn=lambda: score_total_probs(total_probs) )
+                
                 #scores = total_probs
                 scores_shape = tf.shape(scores)
                 #Consider only 1 beam at the first step, as we are simply looking for the beam_width number of best
@@ -565,10 +567,6 @@ class Model:
             self.final_outputs = nest.map_structure(lambda ta: ta.stack(), self.final_outputs_ta)
             self.final_sequence_lengths = self.decode_loop[5]
             
-            #self.predicted_ids = beam_search_ops.gather_tree(
-             #   self.final_outputs.predicted_ids, self.final_outputs.parent_ids,
-              #  sequence_length=self.final_sequence_lengths)
-            
             self.final_outputs, self.final_state = self.inference_decoder.finalize(self.final_outputs, 
                                                                               self.final_state, self.final_sequence_lengths)
             
@@ -678,8 +676,8 @@ class Model:
             self.decoder_train_length = self.decoder_targets_length + 1
             
             #Don't think i really need this line here...
-            #self.decoder_train_targets = tf.concat([self.decoder_targets, PAD_SLICE], axis=1, name='decoder_train_targets')
-            self.decoder_train_targets = self.decoder_targets
+            self.decoder_train_targets = tf.concat([self.decoder_targets, PAD_SLICE], axis=1, name='decoder_train_targets')
+            #self.decoder_train_targets = self.decoder_targets
 
             #self.max_decoder_length = tf.reduce_max(self.decoder_train_length)
             

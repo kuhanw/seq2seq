@@ -118,6 +118,7 @@ Technically the challenge is to implement these ideas in the Tensorflow framewor
 
 ### To do list
 
+  - Update argparser
   - Implement a bidirectional encoder
   - Implement anti-lm for batch decoding
   - <s>Clean up API code to use frozen models instead of restoring from checkpoint</s>

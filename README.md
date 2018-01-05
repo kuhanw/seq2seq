@@ -65,7 +65,7 @@ In order to proceed to the next time step, the current "best" token is selected 
 
   `cell_outputs, next_cell_state = inference_decoder.decoder._cell(next_inputs, current_cell_state)`
 
-generating a new network cell state and a output. If we encounter the special end token, <EOS>, we terminate the decoding. Otherwise we continuously repeat the process.
+generating a new network cell state and a output. If we encounter the special end token, *\<EOS\>*, we terminate the decoding. Otherwise we continuously repeat the process.
 
 ## Selecting the "Best" Token
 

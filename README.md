@@ -87,7 +87,9 @@ Practically, this means modifying the Tensorflow beam search decoder, `tf.contri
 
 where *P(T|S)* is the original decoder *Score*, to which we now subtract the probability of the sequence, *T*. *L* is a strength parameter to tune how strong we want this Anti-LM effect to be. 
 
-Technically, we dive into the Tensorflow API code and modify the scoring function of the beam search to accept an addition parameter so that at each step the decoder determines the beams according to our new scoring function. For practical and technical reasons, see equation (12) of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), we will restrict the correction only up to nth step in the decoding. We will control this via a new parameter *y*. Sequence steps smaller than *y* will be corrected, steps beyond will remain untouched.
+Technically, we dive into the Tensorflow API code and modify the scoring function of the beam search to accept an addition parameter so that at each step the decoder determines the beams according to our new scoring function. 
+
+For practical and technical reasons, see equation (12) of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), we will restrict the correction only up to nth step in the decoding. We will control this via a new parameter *y*. Sequence steps smaller than *y* will be corrected, steps beyond will remain untouched.
 
 ## Generating P(T)
 

@@ -75,25 +75,25 @@ As the vocabulary size is typically large, it is computationally too expensive t
 
 An alternatie is beam search, at each time step we keep the top *N* best sequences according to a heuristic (i.e. sum of softmax of tokens), creating a truncated breadth first search. A beam search decoder with a beam size of 1 is a greedy decoder, if the beam width, *N* is of the vocabulary size it is equivalent to searching the whole space.
 
-Regardless, at each step we have to order the vocabulary by a ranking method. For a large corpus, there will typically be a overabundance of common replies and phrases and tokens. Using just the decoder output a typical seq2seq model can be biased towards emitting common sequences ('Thank you, You are welcome, I don't know'). 
+Regardless, at each step we have to order the vocabulary by a ranking method. For a large corpus, there will typically be a overabundance of common replies and phrases and tokens. Using just the decoder output a typical seq2seq model can be biased towards emitting common sequences ('Thank you, You are welcome, I don't know', I am not sure...). 
 
 ## Anti-LM
 
-We will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce an anti-Language model.  Anti-LM being a fancy phrase to mean we will somehow tally up the most common sequences in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic replies.
+We will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce an anti-Language model.  Anti-LM being a fancy phrase to mean we will somehow tally up the most common sequences in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic responses.
 
 Practically, this means modifying the Tensorflow beam search decoder, `tf.contrib.seq2seq.BeamSearchDecoder`, to rank the decoder outputs by a new heuristic,
 
 *Score = log(P(T|S) - L \* log(P(T))*,
 
-where *P(T|S)* is the original decoder *Score*, to which we now subtract the probability of the sequence, T. *L* is a strength parameter to tune how strong we want this Anti-LM effect to be. 
+where *P(T|S)* is the original decoder *Score*, to which we now subtract the probability of the sequence, *T*. *L* is a strength parameter to tune how strong we want this Anti-LM effect to be. 
 
-Technically, we dive into the Tensorflow API code and modify the scoring function of the beam search to accept an addition parameter so that at each step the decoder determines the beams according to our new scoring function. For practical and technical reasons, see equation (12) of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), we will restrict the correction only up to nth step in the decoding. We will control this via parameter *y*, sequence steps smaller than *y* will be corrected, steps beyond will remain untouched.
+Technically, we dive into the Tensorflow API code and modify the scoring function of the beam search to accept an addition parameter so that at each step the decoder determines the beams according to our new scoring function. For practical and technical reasons, see equation (12) of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), we will restrict the correction only up to nth step in the decoding. We will control this via a new parameter *y*. Sequence steps smaller than *y* will be corrected, steps beyond will remain untouched.
 
 ## Generating P(T)
 
-The original paper was unclear as to how they generated the P(T) during decoding. As an ansatz I simply tabulated them from the training corpus. In practice this means building n-gram models out of the corpus where "n" represents the sequence length and inserting these at run-time during decoding. This is what my code does. 
+I was not sure how the authors of the original paper generated the values ofP(T) during decoding. As an ansatz, I simply tabulated them from the training corpus. In practice this means building n-gram models out of the corpus where "n" represents the sequence length and inserting these at run-time during decoding. This is what my code does. 
 
-Here are some results,
+Here are some results from the revised decoder,
 
 Target Sequence | Decoder 
 --- | --- 
@@ -102,7 +102,7 @@ Target Sequence | Decoder
 'thank', 'bet', 'i', 'love', 'you', '<eos>' | *L*=0.8, *y*=4
 'thank', 'for', 'share', 'i', 'appreci', 'it' | *L*=0.1, *y*=4
 
-You can see even with our simple model, the idea is sound and can return interesting results. It is interesting to note, when we correct only the first token (*y*=1), the entire meaning of the entire output is changed, while adding corrections to the first four steps return more diverse variations of the original response.
+You can see even with our simple model, the idea is sound and can return interesting results. It is interesting to note, when we correct only the first token (*y=1*), the entire meaning of the entire output is changed, while adding corrections to the first four steps return more diverse variations of the original response.
 
 ## Future Steps
 

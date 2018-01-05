@@ -75,9 +75,9 @@ Instead, we will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.or
 
 Practically, this means modifying the Tensorflow beamsearch decoder to rank the decoder outputs by a new heuristic,
 
-Score = log(P(T|S) - \lambda P(T),
+*Score = log(P(T|S) - L \* log(P(T))*,
 
-where P(T|S) is the original decoder Score, to which we now subtract the probability of the sequence, T. Lambda is a strength parameter to tune how strong we want this Anti-LM effect to be. 
+where *P(T|S)* is the original decoder Score, to which we now subtract the probability of the sequence, T. Lambda is a strength parameter to tune how strong we want this Anti-LM effect to be. 
 
 Technically, we dive into the Tensorflow API code and modify the scoring function of the beamsearch to accept an addition parameter so that at each step the decoder determine the beams according to our new equation. For practical and technical purposes, we will restrict the correction only up to nth step in the decoding. 
 

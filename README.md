@@ -37,7 +37,11 @@ A simple API serving the model will be added at a later date.
 
 ### Introduction
 
-As an exercise I wanted to see if it was possible to incorporate a language model based on some a priori information about the corpus into my seq2seq model. I was inspired by this [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055). I wanted to build my implementation directly into Tensorflow as opposed to performing the decoding externally in python as in [here](https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm). In order to do this, I set out on a long journey, beginning with understanding how decoders work...
+Once I had familiarized myself with the seq2seq API and its basic functionality, as an exercise I wanted to see if I can a step further and implement some ideas from research papers that do not exist as a ready baked APIs. 
+
+I was inspired by this [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) on suppressing generic responses in seq2seq decoder responses. 
+
+I wanted to build my implementation directly into Tensorflow as opposed to performing the decoding externally in python as in [here](https://github.com/Marsan-Ma/tf_chatbot_seq2seq_antilm). In order to do this, I set out on a long journey, beginning with understanding how RNN decoders work...
 
 ### Decoding
 

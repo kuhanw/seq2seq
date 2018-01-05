@@ -120,7 +120,12 @@ for *n=[1..Sequence Length]*, This will have the effect of dramatically controll
 
 For the latter case we can apply smoothing to introduce non-zero probabilities for new sequences. The easiest and most naive approach is simply to add 1 to unknown sequences. More advance and sophisticated methods have readily implemented avaliablity in [NLTK](http://www.nltk.org/_modules/nltk/probability.html).
 
-Technically the challenge is to implement these ideas in the Tensorflow framework in a elegant and computational efficient way!
+## Retrospectives
+
+What started of as a simple idea turned out to be a fairly large and substantial undertaking. A considerable amount of effort was expended in compressing the simple idea of anti-LMs into the framework and syntax of Tensorflow particularly in terms of flow control and shape and reshaping of tensors. Each step of the implementation revealed ignorances on my part regarding not just the Tensorflow framework but my core understanding of the basic ideas behind seq2seq such as RNN, decoders that would not have been exposed had I stuck to the pre-baked API functionalities. Many critical nuances are not apparent until one tries to implement a model at a fundamental level.
+
+Thankfully, the results are reasonably sound and do not just contain gibberish. As well, now that we have this framework there are natural pathways to improvement. I have highlighted some of them in the preceding section. Technically the challenge is to implement these ideas in the Tensorflow framework in a elegant and computational efficient way!
+
 
 ### To do list
 

@@ -45,7 +45,7 @@ I wanted to build my implementation directly into Tensorflow as opposed to perfo
 
 ### Decoding
 
-The goal of decoding in a seq2seq model is to find the the target sequence (T) given the source sequence (*S*), i.e. *max(P(T|S))* for all possible *T*'s. Where *T* is a sequence of tokens of unknown length.
+The goal of decoding in a seq2seq model is to find the the target sequence (*T*) given the source sequence (*S*), i.e. *max(P(T|S))* for all possible *T*'s. Where *T* is a sequence of tokens of unknown length.
 
 In a seq2seq model inference is performed by passing the final state of the encoder input to the decoder network and iteratively generating the output sequence.
 

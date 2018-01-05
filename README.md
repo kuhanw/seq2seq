@@ -55,11 +55,9 @@ The `first_input` is of dimension [batch_size, beam_width, embedding_size], repr
 
 The `initial_state` represents the decoder network in terms of the hidden and cell states of the LSTM and the attention states, at step 0 these are initialized to zero.
 
-The cell states represents the vocabulary at a given time step. We can pass the cell state (which is of size [batch_size, beam_width, n_cells] through a fully connected dense layer with size equal to the vocabulary size to obtain a representation of [batch_size, beam_width, vocab_size], if we apply a softmax layer to this output, the elements of the output can then be interpreted as the probability of emission for each vocabulary term.
+The `cell_state` represents the vocabulary at a given time step. We can pass the `cell_state` (which is of size [batch_size, beam_width, n_cells] through a fully connected dense layer with size equal to the vocabulary size to obtain a representation of [batch_size, beam_width, vocab_size], if we apply a softmax layer to this output, the elements of the output can then be interpreted as the probability of emission for each vocabulary term.
 
-In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representtation of it is passed along with the cell state (i.e. hidden state,cell state and attention states, hereafter called cell state) back into the decoder network, generating a new network cell state and a output. 
-
-The output is "densified" and from it the optimal next token is selected, if it is the special end token, <EOS>, we terminate the decoding and finish. Otherwise we do an embedding lookup of the token and pass it back through the decoder network along with the current state and repeat the process.
+In order to proceed to the next time step, the current "best" token is selected via its probability and an embedded representtation of it is passed along with the cell state (i.e. hidden state,cell state and attention states, hereafter called cell state) back into the decoder network, generating a new network cell state and a output. If we encounter the special end token, <EOS>, we terminate the decoding. Otherwise we continuously repeat the process.
 
 ## Selecting the "Best" Token
 
@@ -77,9 +75,9 @@ Instead, we will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.or
 
 Practically, this means modifying the Tensorflow beamsearch decoder to rank the decoder outputs by a new heuristic,
 
-log(P(T|S) - lambda P(T),
+Score = log(P(T|S) - \lambda P(T),
 
-where P(T|S) is the original decoder output, to which we now subtract the probability of the sequence, T. Lambda is a strength parameter to tune how strong we want this Anti-LM effect to be. 
+where P(T|S) is the original decoder Score, to which we now subtract the probability of the sequence, T. Lambda is a strength parameter to tune how strong we want this Anti-LM effect to be. 
 
 Technically, we dive into the Tensorflow API code and modify the scoring function of the beamsearch to accept an addition parameter so that at each step the decoder determine the beams according to our new equation. For practical and technical purposes, we will restrict the correction only up to nth step in the decoding. 
 

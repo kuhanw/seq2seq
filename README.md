@@ -73,9 +73,9 @@ Regardless, at each step we have to order the vocabulary by a ranking method. Fo
 
 ## Anti-LM
 
-Instead, we will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce anti-Language model. This Anti-LM is a fancy phrase to mean, we will somehow tally up the most common sequences in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic replies.
+Instead, we will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce an anti-Language model.  Anti-LM being a fancy phrase to mean we will somehow tally up the most common sequences in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic replies.
 
-Practically this means modifying the Tensorflow beamsearch decoder to rank the decoder outputs by a new heuristic,
+Practically, this means modifying the Tensorflow beamsearch decoder to rank the decoder outputs by a new heuristic,
 
 log(P(T|S) - lambda P(T),
 
@@ -85,7 +85,26 @@ Technically, we dive into the Tensorflow API code and modify the scoring functio
 
 ## Generating P(T)
 
+The original paper was unclear as to how they generated the P(T) during decoding. As an ansatz I simply tabulated them from the training corpus. In practice this means building n-gram models out of the corpus where "n" represents the sequence length and inserting these at run-time during decoding. This is what my code does. 
 
+Here are some results,
+
+Markdown | Less 
+--- | --- 
+*Still* | `renders` 
+1 | 2 
+
+You can see even with our simple model, the idea is sound and returns interesting results.
+
+There are a couple of flaws to this method of constructing P(T). 
+
+As "n" grows the permutations rapidly grow so it becomes computationally unfeasible to store such massive tables in memory during run time. Secondly, in any real world situation the decoder will encounter input sequences that were never presented in the training corpus thus our naive n-gram model states P(T)=0. 
+
+The first problem can be overcome by using better data structures (I am keeping the models on disk as lists) for storage. Tries can be a good solution []. In addition, we can redefine P(T) to be predicated only m prior tokens instead of the full sequence, 
+
+P(T) = Prod( equation).
+
+For the latter case we can apply [smoothing](https://en.wikipedia.org/wiki/Good%E2%80%93Turing_frequency_estimation) to introduce non-zero probabilities for new sequences.
 
 ### To do list
 

@@ -79,7 +79,7 @@ Regardless, at each step we have to order the vocabulary by a ranking method. Fo
 
 ## Anti-LM
 
-We will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce an anti-Language model.  Anti-LM being a fancy phrase to mean we will somehow tally up the most common sequences in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic responses.
+We will take our queue from [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) and introduce an anti-Language model.  Anti-LM being a fancy phrase to mean we will somehow quantify the frequency of target sequences *not* predicated on the source sequence in the (but not necessarily limited to!) corpus and use this information to reward or penalize the decoder so as to encourage diversity and punish generic responses.
 
 Practically, this means modifying the Tensorflow beam search decoder, `tf.contrib.seq2seq.BeamSearchDecoder`, to rank the decoder outputs by a new heuristic,
 
@@ -87,13 +87,13 @@ Practically, this means modifying the Tensorflow beam search decoder, `tf.contri
 
 where *P(T|S)* is the original decoder *Score*, to which we now subtract the probability of the sequence, *T*. *L* is a strength parameter to tune how strong we want this Anti-LM effect to be. 
 
-Technically, we dive into the Tensorflow API code and modify the scoring function of the beam search to accept an addition parameter so that at each step the decoder determines the beams according to our new scoring function. 
-
 For practical and technical reasons, see equation (12) of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), we will restrict the correction only up to nth step in the decoding. We will control this via a new parameter *y*. Sequence steps smaller than *y* will be corrected, steps beyond will remain untouched.
 
 ## Generating P(T)
 
-I was not sure how the authors of the original paper generated the values ofP(T) during decoding. As an ansatz, I simply tabulated them from the training corpus. In practice this means building n-gram models out of the corpus where "n" represents the sequence length and inserting these at run-time during decoding. This is what my code does. 
+I was not sure how the authors of the original paper generated the values ofP(T) during decoding. As an ansatz, I simply tabulated them from the training corpus. In practice this means building n-gram models out of the corpus where "n" represents the sequence length and inserting these at run-time during decoding. This is what my code does.
+
+At decoding time we load these precomputed tables into Tensorflow and at each step in the beam search we do a look up of each current beam and modify the score (log P(T|S)) for all possible next time steps by their sequence probabilities P(T). The overall effect is then to guide each beam down a "sub-optimal" path that it would otherwise not consider but produce more interesting responses.
 
 Here are some results from the revised decoder,
 
@@ -104,19 +104,19 @@ Target Sequence | Decoder
 'thank', 'bet', 'i', 'love', 'you', '<eos>' | *L*=0.8, *y*=4
 'thank', 'for', 'share', 'i', 'appreci', 'it' | *L*=0.1, *y*=4
 
-You can see even with our simple model, the idea is sound and can return interesting results. It is interesting to note, when we correct only the first token (*y=1*), the entire meaning of the entire output is changed, while adding corrections to the first four steps return more diverse variations of the original response.
+You can see even with our simple model, the idea works and can return sensible results. It is interesting to note, when we correct only the first token (*y=1*), the entire meaning of the entire output is changed, while adding corrections to the first four steps return more diverse variations of the original response.
 
 ## Future Steps
 
-There are a couple of flaws to this method of constructing *P(T)* and implementation. From a technical, coding perspective I went through a lot of contortions to load a precomputed table at run time for decoding in Tensorflow. Much of this comes down to the functional programming nature of Tensorflow. As a Tensorflow novice, it was an immensely useful learning experience, but may not be technically elegant.
+There are a couple of flaws to this method of constructing *P(T)* and implementation. From a technical, coding perspective I went through a lot of contortions to load a precomputed table at run time for decoding in Tensorflow. Much of this comes down to the functional programming nature of parts ofTensorflow. As a Tensorflow novice, it was an immensely useful learning experience, but may not be technically elegant.
 
 Conceptually, as the "n" of the n-gram model grows the sequence permutations rapidly grow so it becomes computationally unfeasible to store such massive tables in memory during run time. In addition, in any real world situation the decoder will encounter input sequences that were never presented in the training corpus, our naive n-gram model would then state *P(T)=0*. 
 
-The first problem can be overcome by applying smarter data structures for storage and during computation. I have not had time to do any implementation but tries can be a natural solution to storing massive n-gram models, [http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf]. We can additionally redefine *P(T)* to be predicated only *m* prior tokens instead of the full sequence, 
+The first problem can be overcome by applying smarter data structures for storage and during computation. I have not had time to do any implementation but tries can be a natural solution for storing massive n-gram models, [http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf]. We can additionally redefine *P(T)* to be predicated only on *m* prior tokens instead of the full sequence, 
 
 P(T) = P(t<sub>n</sub>) P(t<sub>n-1</sub>) P(t<sub>n-2</sub>)... P(t<sub>1</sub>) ~ P(t<sub>n</sub>) P(t<sub>n-1</sub>) P(t<sub>n-2</sub>)... P(t<sub>n-m</sub>), 
 
-for *n=[1..Sequence Length]*, This will have the effect of dramatically controlling and bounding our n-gram tables.
+for *n=[1..Sequence Length]*, This will have the effect of dramatically controlling and bounding our n-gram tables and is commonly used in n-gram models to put an upper bound on their size.
 
 For the latter case we can apply smoothing to introduce non-zero probabilities for new sequences. The easiest and most naive approach is simply to add 1 to unknown sequences. More advance and sophisticated methods have readily implemented avaliablity in [NLTK](http://www.nltk.org/_modules/nltk/probability.html).
 

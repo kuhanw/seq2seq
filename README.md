@@ -95,14 +95,12 @@ I was not sure how the authors of the original paper generated the values of P(T
 
 At decoding time we load these precomputed tables into Tensorflow and at each step in the beam search we do a look up of each current beam and modify the score (log P(T|S)) for all possible next time steps by their sequence probabilities P(T). The overall effect is then to guide each beam down a "sub-optimal" path that it would otherwise not consider but produce more interesting responses.
 
-In code, we introduce a while loop inside the step function of `tf.contrib.seq2seq.BeamSearchDecoder`, this while loop cycles through each current beam and maps them to counts of all possible next sequence values from the training corpus, `n_grams_tf` 
+In code, we introduce a while loop inside the step function of `tf.contrib.seq2seq.BeamSearchDecoder`, this while loop cycles through each current beam and maps them to counts of all possible next sequence values from the training corpus, `n_grams_tf` ,
 
-  `y_test = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))`
+  `matched_seqs = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))`
 
-  `y_test_reduce_sum = tf.reduce_sum(y_test[:,:current_beam_step], axis=1)`
-
-  `y_equal  = tf.equal(current_beam_step, y_test_reduce_sum)`
- 
+  `y_equal  = tf.equal(current_beam_step, tf.reduce_sum(matched_seqs[:,:current_beam_step], axis=1))`
+   ...
   `y_diff_gather = tf.gather(n_grams_tf, tf.where(y_equal))`
 
   `last_token_ids = y_diff_gather[:,0][:,-2]`

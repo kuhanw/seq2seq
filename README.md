@@ -100,7 +100,9 @@ In code, we introduce a while loop inside the step function of `tf.contrib.seq2s
   `matched_seqs = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))`
 
   `y_equal  = tf.equal(current_beam_step, tf.reduce_sum(matched_seqs[:,:current_beam_step], axis=1))`
-   ...
+  
+   `...`
+  
   `y_diff_gather = tf.gather(n_grams_tf, tf.where(y_equal))`
 
   `last_token_ids = y_diff_gather[:,0][:,-2]`

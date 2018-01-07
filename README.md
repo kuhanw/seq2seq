@@ -124,14 +124,18 @@ where sequences that do not appear in the corpus are assigned probability zero (
 
 Here are some results from the revised decoder,
 
-Target Sequence | Decoder 
---- | --- 
-'thank', 'you', 'for', 'your', 'support'| No Anti-LM
-'is', 'a', 'great', 'idea' | *L*=0.8, *y*=1
-'thank', 'bet', 'i', 'love', 'you', '<eos>' | *L*=0.8, *y*=4
-'thank', 'for', 'share', 'i', 'appreci', 'it' | *L*=0.1, *y*=4
+Source Sequence| Target Sequence | Decoder 
+---|--- | --- 
+'what are you doing tonight?'|'i m go to be home tomorrow',
+ 'i m go to be home for thanksgiv',
+ 'i m go to be home for a while',| No Anti-LM
+|'chillin in nyc', 'chillin on a spiritu level', 'chillin in the citi'| *L*=0.4, *y*=1
+|'rosemari <unk> hbu', 'rosemari <unk> hbu ? ?', 'rosemari <unk> hbu ? ? ?'|*L*=0.4, *y*=2
+|'chillin here in nyc',
+ 'nm but i m just chillin',
+ 'nm but i m go to get some sleep' | *L*=0.4, *y*=3
 
-You can see even with our simple model, the idea works and can return sensible results. It is interesting to note, when we correct only the first token (*y=1*), the entire meaning of the entire output is changed, while adding corrections to the first four steps return more diverse variations of the original response.
+You can see even with our simple model, the idea works and can return sensible results. Which brings us to the cavaet that there is a need to tune *L* and *y* as hyperparameters. One can see that in this instance, the case *y*=2 produced a strange result. The inference results will also be sensitive to the construction of the n-gram model (see next section).
 
 ## Future Steps
 

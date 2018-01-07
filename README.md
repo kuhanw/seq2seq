@@ -122,18 +122,22 @@ where sequences that do not appear in the corpus are assigned probability zero (
 
 ## Results
 
-Here are some results from the revised decoder,
+Here are some results from the revised decoder, showing the top three ranked beam search results,
 
-Source Sequence| Target Sequence | Decoder 
----|--- | --- 
-'what are you doing tonight?'|'i m go to be home tomorrow',
- 'i m go to be home for thanksgiv',
- 'i m go to be home for a while',| No Anti-LM
-|'chillin in nyc', 'chillin on a spiritu level', 'chillin in the citi'| *L*=0.4, *y*=1
-|'rosemari <unk> hbu', 'rosemari <unk> hbu ? ?', 'rosemari <unk> hbu ? ? ?'|*L*=0.4, *y*=2
-|'chillin here in nyc',
- 'nm but i m just chillin',
- 'nm but i m go to get some sleep' | *L*=0.4, *y*=3
+Source Sequence| Target Sequence | Rank| Decoder 
+---|--- | --- |---
+'what are you doing tonight?'|'i m go to be home tomorrow'|1|No Anti-LM
+'what are you doing tonight?'|'i m go to be home for thanksgiv' | 2 | No Anti-LM
+'what are you doing tonight?'|'i m go to be home for a while'| 3| No Anti-LM
+'what are you doing tonight?'|'chillin in nyc'|1| *L*=0.4, *y*=1
+'what are you doing tonight?'|'chillin on a spiritu level', |2| *L*=0.4, *y*=1
+'what are you doing tonight?'|'chillin in the citi'| 3| *L*=0.4, *y*=1
+'what are you doing tonight?'|'rosemari <unk> hbu'|1|*L*=0.4, *y*=2 
+  'what are you doing tonight?'|'rosemari <unk> hbu ? ?' |2|*L*=0.4, *y*=2
+  'what are you doing tonight?'|'rosemari <unk> hbu ? ? ?'|3|*L*=0.4, *y*=2
+'what are you doing tonight?'|'chillin here in nyc'|1|*L*=0.4, *y*=3
+ 'what are you doing tonight?'|'nm but i m just chillin'|2|*L*=0.4, *y*=3
+'what are you doing tonight?'|'nm but i m go to get some sleep'|3 | *L*=0.4, *y*=3
 
 You can see even with our simple model, the idea works and can return sensible results. Which brings us to the cavaet that there is a need to tune *L* and *y* as hyperparameters. One can see that in this instance, the case *y*=2 produced a strange result. The inference results will also be sensitive to the construction of the n-gram model (see next section).
 

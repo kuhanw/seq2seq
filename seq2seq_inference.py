@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 import tensorflow as tf
-import pandas as pd
-import numpy as np 
 import data_formatting
 import create_model
 import pickle
@@ -14,12 +12,12 @@ parser.add_argument('-r', '--restore', type = str, help = 'path to chkpt file to
 parser.add_argument('-cells', '--cells', type = int, help = 'Number of Hidden units.', required = True)
 parser.add_argument('-n_layers', '--n_layers', type = int, help = 'Number of LSTM layers.', required = True)
 parser.add_argument('-n_embedding', '--n_embedding', type = int, help = 'Dimensionality of word embedding.', required = True)
-parser.add_argument('-beam_length', '--beam_length', type = int, help = 'Length of beam at inference time, set to 1 to remove.', required = True)
-parser.add_argument('-limit_decode_steps', '--limit_decode_steps', type = bool, help = 'Limit the number of decoding steps to 5.', required = False)
-#parser.add_argument('-minibatch_size', '--minibatch_size', type = int, help = 'Size of minibatch during training.', required = True)
 parser.add_argument('-vocab', '--vocab', type = str, help = 'Path to vocabulary pickle file.', required = True)
+parser.add_argument('-lm', '--lm', type = str, help = 'Path to language model pickle file, leave blank to disable.', required = False)
 parser.add_argument('-input', '--input', type = str, help = 'Encoder input to decode.', required = False)
-parser.add_argument('-freeze', '--freeze', type = str, help = 'Filename with path to frozen model.', required=False)
+parser.add_argument('-freeze', '--freeze', type = str, help = 'Path to save frozen model.', required=False)
+parser.add_argument('-beam_length', '--beam_length', type = int, help = 'Length of beam at inference time, set to 1 to remove.', required = False)
+parser.add_argument('-limit_decode_steps', '--limit_decode_steps', type = int, help = 'Limit the number of decoding steps.', required = False)
 
 args = parser.parse_args()
 print (args)
@@ -30,25 +28,42 @@ vocab_path = args.vocab
 vocab_dict = pickle.load(open(vocab_path, 'rb'))
 inv_map = data_formatting.createInvMap(vocab_dict)
 
-inf_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
-          'vocab_size':len(vocab_dict) + 1,
-          'beam_width':args.beam_length, 'limit_decode_steps':None 
-         }
+inf_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 
+                    'embedding_size':args.n_embedding, 
+                    'vocab_size':len(vocab_dict) + 1,
+                    'anti_lm_max_step':3, 'anti_lm_weight':0.5 
+                   }
 
+if args.limit_decode_steps is not None:
+    inf_model_params['limit_decode_steps'] = args.limit_decode_steps
+else:
+    inf_model_params['limit_decode_steps'] = None
+
+if args.beam_length is not None:
+    inf_model_params['beam_length'] = args.beam_length
+else:
+    inf_model_params['beam_length'] = None
+    
 tf.reset_default_graph()
 
+if parser.lm is not None:
+    language_model = pickle.load(open(parser.lm, 'rb'))
+else:
+    language_model = None
+    
 with tf.variable_scope('training_model'):
-
-    inf_model = create_model.Model(inf_model_params, 'infer', None)
+    
+    inf_model = create_model.Model(inf_model_params, 'infer', None, language_model)
 
 with tf.Session() as session:
     
     session.run(tf.global_variables_initializer())
     saver = tf.train.Saver()
-    #saver = tf.train.import_meta_graph(args.restore + '.meta')
     saver.restore(session, args.restore)
+
     if args.freeze is not None:
         
+        #Grab the encoder input and decoder output nodes
         relevant_nodes = [n.name for n in tf.get_default_graph().as_graph_def().node 
                          if 'decoder_pred' in n.name or 'encoder_input' in n.name]
     
@@ -61,7 +76,7 @@ with tf.Session() as session:
         with tf.gfile.GFile(frozen_model_name, 'wb') as f:
             f.write(output_graph_def.SerializeToString())
     
-        print ('model frozen under %s' % frozen_model_name)
+#        print ('model frozen under %s' % frozen_model_name)
     
     if args.input is not None:
        

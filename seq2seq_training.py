@@ -18,13 +18,12 @@ parser.add_argument('-r', '--restore', type = str, help = 'path to chkpt files.'
 parser.add_argument('-cells', '--cells', type = int, help = 'Number of Hidden units.', required = True)
 parser.add_argument('-n_layers', '--n_layers', type = int, help = 'Number of LSTM layers.', required = True)
 parser.add_argument('-n_embedding', '--n_embedding', type = int, help = 'Dimensionality of word embedding.', required = True)
-parser.add_argument('-dropout', '--dropout', type = float, help = 'Probability of dropout, set to 1 to remove.', required = True)
-parser.add_argument('-beam_length', '--beam_length', type = int, help = 'Length of beam at inference time, set to 1 to remove.', required = True)
+parser.add_argument('-layer_dropout', '--layer_dropout', type = float, help = 'Probability of dropout between layers, set to 1 to remove.', required = True)
+parser.add_argument('-recurrent_dropout', '--recurrent_dropou', type = float, help = 'Probability of dropout between recurrent hidden states, set to 1 to remove.', required = True)
+parser.add_argument('-n_epochs', '--n_epochs', type = int, help = 'Number of training epochs to run for.', required = True)
 parser.add_argument('-minibatch_size', '--minibatch_size', type = int, help = 'Size of minibatch during training.', required = True)
-parser.add_argument('-limit_decode_steps', '--limit_decode_steps', type = bool, help = 'Limit the number of decoding steps to 5.', required = False)
 
 parser.add_argument('-vocab', '--vocab', type = str, help = 'Path to vocabulary pickle file.', required = True)
-
 parser.add_argument('-data', '--data', type = str, help = 'Path to dataset pickle file for training/testing.', required = True)
 
 args = parser.parse_args()
@@ -92,20 +91,19 @@ inv_map = data_formatting.createInvMap(vocab_dict)
 
 train_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
-          'beam_width':args.beam_length, 'limit_decode_steps':None,
           'encoder_input_keep':args.dropout, 'decoder_input_keep':args.dropout,
           'encoder_output_keep':args.dropout, 'decoder_output_keep':args.dropout,
+          'recurrent_dropout':args.recurrent_dropout
          }
-
-dev_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
-          'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
-          'beam_width':args.beam_length, 'limit_decode_steps':None,
-          'encoder_input_keep':1, 'decoder_input_keep':1,
-          'encoder_output_keep':1, 'decoder_output_keep':1,
-         }
+dev_model_params = train_model_params
+dev_model_params['encoder_input_keep'] = 1
+dev_model_params['encoder_output_keep'] = 1
+dev_model_params['decoder_input_keep'] = 1
+dev_model_params['decoder_output_keep'] = 1
+dev_model_params['recurrent_dropout'] = 1
 
 training_params = { 'vocab_lower':3, 'vocab_upper':train_model_params['vocab_size']-1, 
-                    'n_epochs':5000000}
+                    'n_epochs':parser.n_epochs}
 
 tf.reset_default_graph()
 
@@ -147,7 +145,6 @@ with tf.Session() as session:
         print ('restoring from chkpt %s' % chkpt_path)
         print ('latest checkpoint %s' %  tf.train.latest_checkpoint(chkpt_path)) 
         saver.restore(session, tf.train.latest_checkpoint(chkpt_path))
-
 
     for epoch in range(training_params['n_epochs']):
 

@@ -226,8 +226,6 @@ class Model:
       
                 def grab_probs(n_grams_tf, y_equal): 
 
-                    #y_args = tf.where(y_equal_2)
-
                     y_diff_gather = tf.gather(n_grams_tf, tf.where(y_equal))
 
                     last_token_ids = y_diff_gather[:,0][:,-2]
@@ -252,13 +250,10 @@ class Model:
                 scatter_base = tf.constant([self.vocab_size]) #Size of dict for scatter base
 
                 #Find where current beam matches n_gram sequence up to current seq pos, cast as int
-                y_test = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))
-                
-                #Reduce across the length of the beam 
-                y_test_reduce_sum = tf.reduce_sum(y_test[:,:current_beam_step], axis=1) 
+                matched_seqs = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))
 
                 #Find args where the beam is matched to the n_gram combinations
-                y_equal  = tf.equal(current_beam_step, y_test_reduce_sum)
+                y_equal  = tf.equal(current_beam_step, tf.reduce_sum(matched_seqs[:,:current_beam_step], axis=1))
 
                 #Get probabilities. Special case for sequences that do not match anything in the ngram model
                 test_add = tf.cond(tf.equal(0, tf.reduce_sum(tf.to_int32(y_equal))),

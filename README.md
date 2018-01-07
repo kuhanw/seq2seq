@@ -89,11 +89,38 @@ where *P(T|S)* is the original decoder *Score*, to which we now subtract the pro
 
 For practical and technical reasons, see equation (12) of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), we will restrict the correction only up to nth step in the decoding. We will control this via a new parameter *y*. Sequence steps smaller than *y* will be corrected, steps beyond will remain untouched.
 
-## Generating P(T)
+## Generating P(T) and correcting the Score
 
-I was not sure how the authors of the original paper generated the values ofP(T) during decoding. As an ansatz, I simply tabulated them from the training corpus. In practice this means building n-gram models out of the corpus where "n" represents the sequence length and inserting these at run-time during decoding. This is what my code does.
+I was not sure how the authors of the original paper generated the values of P(T) during decoding. As an ansatz, I simply tabulated them from the training corpus. In practice this means building n-gram models out of the corpus where "n" represents the sequence length and inserting these at run-time during decoding. This is what my code does.
 
 At decoding time we load these precomputed tables into Tensorflow and at each step in the beam search we do a look up of each current beam and modify the score (log P(T|S)) for all possible next time steps by their sequence probabilities P(T). The overall effect is then to guide each beam down a "sub-optimal" path that it would otherwise not consider but produce more interesting responses.
+
+In code, we introduce a while loop inside the step function of `tf.contrib.seq2seq.BeamSearchDecoder`, this while loop cycles through each current beam and maps them to counts of all possible next sequence values from the training corpus, `n_grams_tf` 
+
+  `y_test = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))`
+
+  `y_test_reduce_sum = tf.reduce_sum(y_test[:,:current_beam_step], axis=1)`
+
+  `y_equal  = tf.equal(current_beam_step, y_test_reduce_sum)`
+ 
+  `y_diff_gather = tf.gather(n_grams_tf, tf.where(y_equal))`
+
+  `last_token_ids = y_diff_gather[:,0][:,-2]`
+
+  `indices = tf.reshape(last_token_ids, [tf.shape(last_token_ids)[0], 1])`
+
+  `last_token_counts = y_diff_gather[:,0][:,-1]`
+
+  `total_count = tf.reduce_sum(last_token_counts)`
+
+  `test_add_result = tf.scatter_nd(indices=indices, 
+              updates=last_token_counts, shape=scatter_base)/total_count`
+
+  `test_add_result = tf.log(test_add_result + 10e-10)`,
+
+where sequences that do not appear in the corpus are assigned probability zero (i.e. they are untouched, more on this at the end). The result of the while loop is a tensor of shape [beam_width, vocab_size] at each time step which we add onto the cell output logits to obtain the anti-LM corrected scores, from which then the `tf.nn.top_k` scoring `word_indices` and `next_beam_scores` are selected.
+
+## Results
 
 Here are some results from the revised decoder,
 

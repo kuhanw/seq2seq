@@ -15,11 +15,12 @@ parser = argparse.ArgumentParser(description='Train a seq2seq model.')
 
 parser.add_argument('-s', '--save', type = str, help = 'path to save output files.', required = True)
 parser.add_argument('-r', '--restore', type = str, help = 'path to chkpt files.', required = False)
+parser.add_argument('-name', '--name', type = str, help = 'Name of model, will be used as a prefix to the saved sessions.', required = True)
 parser.add_argument('-cells', '--cells', type = int, help = 'Number of Hidden units.', required = True)
 parser.add_argument('-n_layers', '--n_layers', type = int, help = 'Number of LSTM layers.', required = True)
 parser.add_argument('-n_embedding', '--n_embedding', type = int, help = 'Dimensionality of word embedding.', required = True)
 parser.add_argument('-layer_dropout', '--layer_dropout', type = float, help = 'Probability of dropout between layers, set to 1 to remove.', required = True)
-parser.add_argument('-recurrent_dropout', '--recurrent_dropou', type = float, help = 'Probability of dropout between recurrent hidden states, set to 1 to remove.', required = True)
+parser.add_argument('-recurrent_dropout', '--recurrent_dropout', type = float, help = 'Probability of dropout between recurrent hidden states, set to 1 to remove.', required = True)
 parser.add_argument('-n_epochs', '--n_epochs', type = int, help = 'Number of training epochs to run for.', required = True)
 parser.add_argument('-minibatch_size', '--minibatch_size', type = int, help = 'Size of minibatch during training.', required = True)
 
@@ -28,7 +29,7 @@ parser.add_argument('-data', '--data', type = str, help = 'Path to dataset pickl
 
 args = parser.parse_args()
 
-print (args)
+print ('Arguments:', args)
 
 chkpt_path = args.restore
 save_path = args.save
@@ -62,7 +63,7 @@ def validate(train):
         if i >= 0: break
 
 
-dataset = 'twitter'
+dataset = args.name
 
 vocab_dict = pickle.load(open(vocab_path, 'rb'))
 df_all = pd.read_pickle(data_path)
@@ -75,8 +76,7 @@ df_all_test = df_all_dev.sample(frac=0.10, random_state=1)
 
 df_all_dev = df_all_dev[df_all_dev['Index'].isin(df_all_test['Index'].values) == False]
 
-
-print (df_all.shape[0], df_all_train.shape[0],  df_all_dev.shape[0], df_all_test.shape[0], len(vocab_dict))
+print ('Total Rows of Data:%d, training data:%d, dev data:%d, test_data:%d, vocab_size:%d' % (df_all.shape[0], df_all_train.shape[0],  df_all_dev.shape[0], df_all_test.shape[0], len(vocab_dict)))
 
 
 train_data = data_formatting.prepare_train_batch(df_all_train['alpha_Pair_0_encoding'].values, 
@@ -91,8 +91,8 @@ inv_map = data_formatting.createInvMap(vocab_dict)
 
 train_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 'embedding_size':args.n_embedding, 
           'vocab_size':len(vocab_dict) + 1, 'minibatch_size':args.minibatch_size, 'n_threads':128,
-          'encoder_input_keep':args.dropout, 'decoder_input_keep':args.dropout,
-          'encoder_output_keep':args.dropout, 'decoder_output_keep':args.dropout,
+          'encoder_input_keep':args.layer_dropout, 'decoder_input_keep':args.layer_dropout,
+          'encoder_output_keep':args.layer_dropout, 'decoder_output_keep':args.layer_dropout,
           'recurrent_dropout':args.recurrent_dropout
          }
 dev_model_params = train_model_params
@@ -103,7 +103,7 @@ dev_model_params['decoder_output_keep'] = 1
 dev_model_params['recurrent_dropout'] = 1
 
 training_params = { 'vocab_lower':3, 'vocab_upper':train_model_params['vocab_size']-1, 
-                    'n_epochs':parser.n_epochs}
+                    'n_epochs':args.n_epochs}
 
 tf.reset_default_graph()
 
@@ -132,6 +132,7 @@ save_interval = 2000
 lr = 0.001
 
 metrics = []
+total_time = time.time()
 with tf.Session() as session:
 
     session.run(tf.global_variables_initializer())
@@ -179,7 +180,7 @@ with tf.Session() as session:
 
             print ('Epoch:%d finished, time:%.4g' % (epoch, time.time() - start_time))
 
-        if (epoch % save_interval == 0) & (epoch!=0): 
+        if (epoch % save_interval == 0):# & (epoch!=0): 
 
             df_metrics = pd.DataFrame(metrics, columns=['Global Step','Train Loss', 'Train Accuracy', 'Dev Loss', 'Dev Accuracy', 
 										'Learning Rate'])
@@ -194,4 +195,5 @@ with tf.Session() as session:
 
 session.close()
 
-
+print ('All Done!')
+print ('Total time:%.4g' % (time.time() -total_time))

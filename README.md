@@ -11,17 +11,18 @@ Python 3.5, Tensorflow 1.3, Pandas 0.18
 
 The training code can be launched from seq2seq_training.py, for example: 
 
-python seq2seq_training.py -s ../../efs/chkpt -cells 256 -n_layers 3 -n_embedding 256 -dropout 0.8 -beam_length 10 -minibatch_size 128 -data data_file.pkl -vocab vocabulary.pkl
+python seq2seq_training.py -name test_set_name -s /path_to_chkpt_folder/ -cells 128 -n_layers 2 -n_embedding 256 -layer_dropout 1 -recurrent_dropout 0.5 -n_epochs 100 -minibatch_size 32 -vocab /path_to_vocab/vocabulary.pkl -data /path_to_data/data_file.pkl
 
 where data_file.pkl andd vocabulary.pkl are Python 3 compatible pickles consisting of:
   
-  - data_file.pkl, rows of encoder, decoder inputs in numerical representation as a pandas dataframe,
+  - data_file.pkl, rows of encoder, decoder inputs in numerical representation as a pandas dataframe i.e., 
+    - Encoder_input[4, 5, 3, 1], decoder_target:[123, 44, 5 ,1093, 1]
   - vocabulary.pkl, a dictionary of key:value mappings between string tokens and integers,
   
 representative examples can be found in this github repository under: https://github.com/kuhanw/processed_data.
 
-Once you have a checkpointed model, at any time you can perform inference (i.e. return a response with only the encoder input) by
-executing seq2seq_training.py:
+Once you have a saved a model, at any time you can perform inference (i.e. return a response with only the encoder input) by
+executing seq2seq_training.py on the checkpoint file:
 
 python seq2seq_inference.py -r checkpoint_file -cells 256 -n_layers 3 -n_embedding 256 -beam_length 10 -vocab vocabulary.pkl	-freeze frozen_model_path -input encoder_input 
 

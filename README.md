@@ -171,6 +171,7 @@ Thankfully, the results are reasonably sound and do not just contain gibberish. 
 
 ### To do list
 
+  - Clean up preprocessing script and notebook.
   - <s>Update argparser</s>
   - Implement a bidirectional encoder
   - Implement anti-lm for batch decoding

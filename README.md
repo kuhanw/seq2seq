@@ -171,7 +171,7 @@ Thankfully, the results are reasonably sound and do not just contain gibberish. 
 
 ### To do list
 
-  - Update argparser
+  - <s>Update argparser</s>
   - Implement a bidirectional encoder
   - Implement anti-lm for batch decoding
   - <s>Clean up API code to use frozen models instead of restoring from checkpoint</s>

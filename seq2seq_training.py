@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+'''
+A simple training script for seq2seq models. 
+Kuhan Wang 
+17-01-09
+'''
 import tensorflow as tf
 import pandas as pd
 import numpy as np 
@@ -78,7 +83,6 @@ df_all_dev = df_all_dev[df_all_dev['Index'].isin(df_all_test['Index'].values) ==
 
 print ('Total Rows of Data:%d, training data:%d, dev data:%d, test_data:%d, vocab_size:%d' % (df_all.shape[0], df_all_train.shape[0],  df_all_dev.shape[0], df_all_test.shape[0], len(vocab_dict)))
 
-
 train_data = data_formatting.prepare_train_batch(df_all_train['alpha_Pair_0_encoding'].values, 
                                                     df_all_train['alpha_Pair_1_encoding'].values)
 
@@ -127,7 +131,7 @@ optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 train_op = optimizer.minimize(train_model.loss, global_step=global_step)
 
 print_interval = 100
-save_interval = 2000
+save_interval = 1000
 
 lr = 0.001
 
@@ -135,12 +139,12 @@ metrics = []
 total_time = time.time()
 with tf.Session() as session:
 
-    session.run(tf.global_variables_initializer())
-    saver = tf.train.Saver()
-
     coord = tf.train.Coordinator()
 
-    threads = tf.train.start_queue_runners(coord=coord)
+    threads = tf.train.start_queue_runners(sess=session, coord=coord)
+   
+    session.run(tf.global_variables_initializer())
+    saver = tf.train.Saver()
 
     if chkpt_path is not None:
         print ('restoring from chkpt %s' % chkpt_path)
@@ -152,7 +156,6 @@ with tf.Session() as session:
         start_time = time.time()
 
         session.run(train_op, feed_dict={'starter_learning_rate:0':lr})
-        #session.run(train_op)
 
         if epoch % print_interval == 0: 
 
@@ -180,7 +183,7 @@ with tf.Session() as session:
 
             print ('Epoch:%d finished, time:%.4g' % (epoch, time.time() - start_time))
 
-        if (epoch % save_interval == 0):# & (epoch!=0): 
+        if (epoch % save_interval == 0) & (epoch!=0): 
 
             df_metrics = pd.DataFrame(metrics, columns=['Global Step','Train Loss', 'Train Accuracy', 'Dev Loss', 'Dev Accuracy', 
 										'Learning Rate'])
@@ -193,7 +196,7 @@ with tf.Session() as session:
     coord.request_stop()
     coord.join(threads)
 
-session.close()
+#session.close()
 
 print ('All Done!')
 print ('Total time:%.4g' % (time.time() -total_time))

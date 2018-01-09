@@ -20,7 +20,7 @@ parser.add_argument('-beam_length', '--beam_length', type = int, help = 'Length 
 parser.add_argument('-limit_decode_steps', '--limit_decode_steps', type = int, help = 'Limit the number of decoding steps.', required = False)
 
 args = parser.parse_args()
-print (args)
+print ('Arguments:', args)
 
 restore_path = args.restore 
 vocab_path = args.vocab
@@ -31,7 +31,8 @@ inv_map = data_formatting.createInvMap(vocab_dict)
 inf_model_params = {'n_cells':args.cells, 'num_layers':args.n_layers, 
                     'embedding_size':args.n_embedding, 
                     'vocab_size':len(vocab_dict) + 1,
-                    'anti_lm_max_step':3, 'anti_lm_weight':0.5 
+                    'anti_lm_max_step':3, 'anti_lm_weight':0.5, 
+                    'length_penalty':0
                    }
 
 if args.limit_decode_steps is not None:
@@ -40,17 +41,17 @@ else:
     inf_model_params['limit_decode_steps'] = None
 
 if args.beam_length is not None:
-    inf_model_params['beam_length'] = args.beam_length
+    inf_model_params['beam_width'] = args.beam_length
 else:
-    inf_model_params['beam_length'] = None
+    inf_model_params['beam_width'] = None
+
+if args.lm is not None:
+    language_model = pickle.load(open(args.lm, 'rb'))
+else:
+    language_model = None   
     
 tf.reset_default_graph()
 
-if parser.lm is not None:
-    language_model = pickle.load(open(parser.lm, 'rb'))
-else:
-    language_model = None
-    
 with tf.variable_scope('training_model'):
     
     inf_model = create_model.Model(inf_model_params, 'infer', None, language_model)
@@ -63,7 +64,6 @@ with tf.Session() as session:
 
     if args.freeze is not None:
         
-        #Grab the encoder input and decoder output nodes
         relevant_nodes = [n.name for n in tf.get_default_graph().as_graph_def().node 
                          if 'decoder_pred' in n.name or 'encoder_input' in n.name]
     
@@ -95,9 +95,10 @@ with tf.Session() as session:
             print ('###%d###' % idx)
 
             print ('e_in', data_formatting.decodeSent(e_in, inv_map))
-            beam_inf = list(zip(*decoder_inference[idx]))
-            for idx_inf, dt_inf in enumerate(beam_inf):
-
-                print ('dt_inf', data_formatting.decodeSent(dt_inf, inv_map))
-                if idx_inf>1: break                
+            if inf_model_params['beam_width']>1:
+                beam_inf = list(zip(*decoder_inference[idx]))
+                for idx_inf, dt_inf in enumerate(beam_inf):
+                    print ('Beam:', idx_inf, ' ', data_formatting.decodeSent(dt_inf, inv_map))
+            else:
+                print ('Inf:', data_formatting.decodeSent(decoder_inference[idx], inv_map))
 

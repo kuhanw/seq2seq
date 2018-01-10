@@ -5,6 +5,17 @@ PAD = 0
 EOS = 1
 UNK = 2
 
+def translateDecoderOutput(output, inv_map):
+    output = [decodeSent(output.T[i][0], inv_map) for i in range(len(output.T))]
+    output_eos = [response.index('<eos>') if '<eos>' in response else response.index('<EOS>') for response in output]
+    output = [' '.join(response[:output_eos[idx]]) for idx, response in enumerate(output)]
+    output_unique = []
+    for response in output:
+        if response not in output_unique:
+            output_unique.append(response)
+    
+    return output_unique
+
 def encodeSent(sent, vocab_dict):
 
     if type(sent) == str: sent = sent.split(' ')

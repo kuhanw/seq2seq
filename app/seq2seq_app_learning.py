@@ -7,6 +7,7 @@ import data_formatting
 import time
 import tensorflow as tf
 import random
+import preprocessing
 
 from tensorflow.contrib.seq2seq.python.ops import beam_search_ops
 from flask import Flask, request, jsonify
@@ -49,7 +50,8 @@ def predict():
    
     input_json = request.get_json(force=True) 
     x_in = input_json['string']
-    train_data_encoder = data_formatting.encodeSent(x_in, vocab_dict)
+    input_stem = preprocessing.nltkStem(x_in.split(' '))[0]
+    train_data_encoder = data_formatting.encodeSent(input_stem, vocab_dict)
     inf_out = session.run(y, feed_dict={x:[train_data_encoder], x_len:[len(train_data_encoder)]})
 
     inf_sent = sample(list(zip(*inf_out[0])))
@@ -78,7 +80,6 @@ if __name__ == "__main__":
     
     print('Load model')
     model_graph = load_graph(model_filename)
-
     
     print ('Load Vocabulary')
 

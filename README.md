@@ -127,18 +127,18 @@ Here are some results from the revised decoder, showing the top three ranked bea
 
 Source Sequence| Target Sequence | Rank| Decoder 
 ---|--- | --- |---
-'what are you doing tonight?'|'i m go to be home tomorrow'|1|No Anti-LM
-'what are you doing tonight?'|'i m go to be home for thanksgiv' | 2 | No Anti-LM
-'what are you doing tonight?'|'i m go to be home for a while'| 3| No Anti-LM
-'what are you doing tonight?'|'chillin in nyc'|1| *L*=0.4, *y*=1
-'what are you doing tonight?'|'chillin on a spiritu level', |2| *L*=0.4, *y*=1
-'what are you doing tonight?'|'chillin in the citi'| 3| *L*=0.4, *y*=1
-'what are you doing tonight?'|'rosemari <unk> hbu'|1|*L*=0.4, *y*=2 
-  'what are you doing tonight?'|'rosemari <unk> hbu ? ?' |2|*L*=0.4, *y*=2
-  'what are you doing tonight?'|'rosemari <unk> hbu ? ? ?'|3|*L*=0.4, *y*=2
-'what are you doing tonight?'|'chillin here in nyc'|1|*L*=0.4, *y*=3
- 'what are you doing tonight?'|'nm but i m just chillin'|2|*L*=0.4, *y*=3
-'what are you doing tonight?'|'nm but i m go to get some sleep'|3 | *L*=0.4, *y*=3
+'what are you doing today?'|'i m go to be home tomorrow'|1|No Anti-LM
+'what are you doing today?'|'i m go to be home for thanksgiv' | 2 | No Anti-LM
+'what are you doing today?'|'i m go to be home for a while'| 3| No Anti-LM
+'what are you doing today?'|'chillin in nyc'|1| *L*=0.4, *y*=1
+'what are you doing today?'|'chillin on a spiritu level', |2| *L*=0.4, *y*=1
+'what are you doing today?'|'chillin in the citi'| 3| *L*=0.4, *y*=1
+'what are you doing today?'|'rosemari <unk> hbu'|1|*L*=0.4, *y*=2 
+  'what are you doing today?'|'rosemari <unk> hbu ? ?' |2|*L*=0.4, *y*=2
+  'what are you doing today?'|'rosemari <unk> hbu ? ? ?'|3|*L*=0.4, *y*=2
+'what are you doing today?'|'chillin here in nyc'|1|*L*=0.4, *y*=3
+ 'what are you doing today?'|'nm but i m just chillin'|2|*L*=0.4, *y*=3
+'what are you doing today?'|'nm but i m go to get some sleep'|3 | *L*=0.4, *y*=3
 
 You can see even with our simple model, the idea works and can return sensible results. Which brings us to the cavaet that there is a need to tune *L* and *y* as hyperparameters. One can see that in this instance, the case *y*=2 produced a strange result. The inference results will also be sensitive to the construction of the n-gram model (see next section).
 
@@ -146,7 +146,7 @@ We can save a frozen model with the n-gram counts built directly into the graph 
 
 `python seq2seq_inference.py -r chkpfile -cells 128 -n_layers 2 -n_embedding 256 -vocab vocabulary.pkl -f frozen_models/ -beam_length 2  -lm language_model.pkl`,
 
-the addition being a pickle `language_model.pkl` which consists of frequency tables of shape [n_grams, keys, counts], where n_grams is the sequence length up to to which we keep frequency counts from the corpus, keys are the sequences themselves and counts are their occurrences.
+the addition being a pickle `language_model.pkl` which consists of frequency tables of shape [n_grams, keys, counts], where n_grams is the sequence length up to to which we keep frequency counts from the corpus, keys are the sequences themselves and counts are their occurrences. The model that generated the response above can be found in the frozen model folder.
 
 ## Future Steps
 

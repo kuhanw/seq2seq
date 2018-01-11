@@ -48,7 +48,7 @@ I wanted to build my implementation directly into Tensorflow as opposed to perfo
 
 The goal of decoding in a seq2seq model is to find the the target sequence (*T*) given the source sequence (*S*), i.e. *max(P(T|S))* for all possible *T*'s. Where *T* is a sequence of tokens of unknown length.
 
-One aspect of seq2seq decoding is a predisposition to veer towards conservatism in its responses. Typically a model will be trained on a large corpus and within it, there will be an overabundunce of certain common tokens, sequences and pairs (i.e. question and answer for example). This can leading to situations where decoding responses are generic, as from Table 1 of [[arXiv:1510.03055 [cs.CL]] (https://arxiv.org/abs/1510.03055) below.
+One aspect of seq2seq decoding is a predisposition to veer towards conservatism in its responses. Typically a model will be trained on a large corpus and within it, there will be an overabundunce of certain common tokens, sequences and pairs (i.e. question and answer for example). This can leading to situations where decoding responses are generic, as from Table 1 of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) below.
 
 Source Sequence| Target Sequence Response
 ---|--- |
@@ -77,7 +77,7 @@ In order to proceed to the next time step, the current "best" token is selected 
 
 generating a new network cell state and a output. If we encounter the special end token, *\<EOS\>*, we terminate the decoding. Otherwise we continuously repeat the process.
 
-Therefore, the overall process is to equivalent to maximizing the likelihood of the target sequence. In this seq2seq implementation, we will take the idea of  [[arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), and try to introduce diversity to the decoder by instead optimizing for [mutual information](https://en.wikipedia.org/wiki/Mutual_information).
+Therefore, the overall process is to equivalent to maximizing the likelihood of the target sequence. In this seq2seq implementation, we will take the idea of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), and try to introduce diversity to the decoder by instead optimizing for [mutual information](https://en.wikipedia.org/wiki/Mutual_information).
 
 ## Selecting the "Best" Token
 

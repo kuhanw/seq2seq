@@ -74,7 +74,7 @@ The rank of best to worst tokens at each time step can follow a number of heuris
 
 As the vocabulary size is typically large, it is computationally too expensive to perform a full search and enumerate all sequence combinations to find the one that maximizes *P(T|S)*. During greedy decoding at each state we simply select the "best" token according to the softmax of each vocabulary term.
 
-An alternatie is beam search, at each time step we keep the top *N* best sequences according to a heuristic (i.e. sum of softmax of tokens), creating a truncated breadth first search. A beam search decoder with a beam size of 1 is a greedy decoder, if the beam width, *N* is of the vocabulary size it is equivalent to searching the whole space.
+An alternative is beam search, at each time step we keep the top *N* best sequences according to a heuristic (i.e. sum of softmax of tokens), creating a truncated breadth first search. A beam search decoder with a beam size of 1 is a greedy decoder, if the beam width, *N* is of the vocabulary size it is equivalent to searching the whole space.
 
 Regardless, at each step we have to order the vocabulary by a ranking method. For a large corpus, there will typically be a overabundance of common replies and phrases and tokens. Using just the decoder output a typical seq2seq model can be biased towards emitting common sequences ('Thank you, You are welcome, I don't know', I am not sure...). 
 
@@ -134,10 +134,10 @@ Source Sequence| Target Sequence | Rank| Decoder
 'what are you doing today?'|'chillin on a spiritu level', |2| *L*=0.4, *y*=1
 'what are you doing today?'|'chillin in the citi'| 3| *L*=0.4, *y*=1
 'what are you doing today?'|'rosemari <unk> hbu'|1|*L*=0.4, *y*=2 
-  'what are you doing today?'|'rosemari <unk> hbu ? ?' |2|*L*=0.4, *y*=2
-  'what are you doing today?'|'rosemari <unk> hbu ? ? ?'|3|*L*=0.4, *y*=2
+'what are you doing today?'|'rosemari <unk> hbu ? ?' |2|*L*=0.4, *y*=2
+'what are you doing today?'|'rosemari <unk> hbu ? ? ?'|3|*L*=0.4, *y*=2
 'what are you doing today?'|'chillin here in nyc'|1|*L*=0.4, *y*=3
- 'what are you doing today?'|'nm but i m just chillin'|2|*L*=0.4, *y*=3
+'what are you doing today?'|'nm but i m just chillin'|2|*L*=0.4, *y*=3
 'what are you doing today?'|'nm but i m go to get some sleep'|3 | *L*=0.4, *y*=3
 
 You can see even with our simple model, the idea works and can return sensible results. Which brings us to the cavaet that there is a need to tune *L* and *y* as hyperparameters. One can see that in this instance, the case *y*=2 produced a strange result. The inference results will also be sensitive to the construction of the n-gram model (see next section).

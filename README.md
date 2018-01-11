@@ -77,7 +77,7 @@ In order to proceed to the next time step, the current "best" token is selected 
 
 generating a new network cell state and a output. If we encounter the special end token, *\<EOS\>*, we terminate the decoding. Otherwise we continuously repeat the process.
 
-Therefore, the overall process is to equivalent to maximizing the likelihood of the target sequence. In this seq2seq implementation, we will take the idea of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), and try to introduce diversity to the decoder by instead optimizing for [mutual information](https://en.wikipedia.org/wiki/Mutual_information).
+Therefore, the overall process of selecting the "best" token at each time step is equivalent to maximizing the likelihood of the target sequence. In this seq2seq implementation, we will take the idea of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), and try to introduce diversity to the decoder by instead optimizing for [mutual information](https://en.wikipedia.org/wiki/Mutual_information).
 
 ## Selecting the "Best" Token
 

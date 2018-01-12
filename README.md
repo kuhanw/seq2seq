@@ -107,6 +107,13 @@ I was not sure how the authors of the original paper generated the values of P(T
 
 At decoding time we load these precomputed tables into Tensorflow and at each step in the beam search we do a look up of each current beam and modify the score (log P(T|S)) for all possible next time steps by their sequence probabilities P(T). The overall effect is then to guide each beam down a "sub-optimal" path that it would otherwise not consider but produce more interesting responses.
 
+<p align="center">
+<img src="./beam_search_chart.svg">
+</p>
+ The figure above shows an example with a beam width of two. At each time step, *t*, the probability of emitting the *n*, vocabulary term, denoted, *y<sub>n</sub><sup>t</sup>* is predicated on the previously emitted tokens, corrected by the the *P(T)* model at each step. The final top two beams at *t=2* is shown in blue.
+ 
+## Technical Details
+
 In code, we introduce a while loop inside the step function of `tf.contrib.seq2seq.BeamSearchDecoder`, this while loop cycles through each current beam and maps them to counts of all possible next sequence values from the training corpus, `n_grams_tf` ,
 
   `matched_seqs = tf.to_int32(tf.equal(n_grams_tf, beam_pad[current_beam]))`
@@ -131,6 +138,7 @@ In code, we introduce a while loop inside the step function of `tf.contrib.seq2s
   `test_add_result = tf.log(test_add_result + 10e-10)`,
 
 where sequences that do not appear in the corpus are assigned probability zero (i.e. they are untouched, more on this at the end). The result of the while loop is a tensor of shape [beam_width, vocab_size] at each time step which we add onto the cell output logits to obtain the anti-LM corrected scores, from which then the `tf.nn.top_k` scoring `word_indices` and `next_beam_scores` are selected.
+
 
 ## Results
 

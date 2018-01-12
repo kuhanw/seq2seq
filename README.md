@@ -132,6 +132,9 @@ In code, we introduce a while loop inside the step function of `tf.contrib.seq2s
 
 where sequences that do not appear in the corpus are assigned probability zero (i.e. they are untouched, more on this at the end). The result of the while loop is a tensor of shape [beam_width, vocab_size] at each time step which we add onto the cell output logits to obtain the anti-LM corrected scores, from which then the `tf.nn.top_k` scoring `word_indices` and `next_beam_scores` are selected.
 
+![Alt text](./beam_search_chart.svg)
+<img src="./beam_search_chart.svg">
+
 ## Results
 
 Here are some results from the revised decoder, showing the top three ranked beam search results,

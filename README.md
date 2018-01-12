@@ -48,7 +48,16 @@ I wanted to build my implementation directly into Tensorflow as opposed to perfo
 
 The goal of decoding in a seq2seq model is to find the the target sequence (*T*) given the source sequence (*S*), i.e. *max(P(T|S))* for all possible *T*'s. Where *T* is a sequence of tokens of unknown length.
 
-In a seq2seq model inference is performed by passing the final state of the encoder input to the decoder network and iteratively generating the output sequence.
+One aspect of seq2seq decoding is a predisposition to veer towards conservatism in its responses. Typically a model will be trained on a large corpus and within it, there will be an overabundunce of certain common tokens, sequences and pairs (i.e. question and answer for example). This can leading to situations where decoding responses are generic, as from Table 1 of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055) below.
+
+Source Sequence| Target Sequence Response
+---|--- |
+'what is your name?'|'i don't know'
+'what is your name?'|'i don't know!'
+'what is your name?'|'i don't know sir'
+'what is your name?'|'oh my god!'
+
+Generally, in a seq2seq model inference is performed by passing the final state of the encoder input to the decoder network and iteratively generating the output sequence.
 
 Practically this means we begin by initializing the decoder,
 
@@ -68,13 +77,15 @@ In order to proceed to the next time step, the current "best" token is selected 
 
 generating a new network cell state and a output. If we encounter the special end token, *\<EOS\>*, we terminate the decoding. Otherwise we continuously repeat the process.
 
+Therefore, the overall process of selecting the "best" token at each time step is equivalent to maximizing the likelihood of the target sequence. In this seq2seq implementation, we will take the idea of [arXiv:1510.03055 [cs.CL]](https://arxiv.org/abs/1510.03055), and try to introduce diversity to the decoder by instead optimizing for [mutual information](https://en.wikipedia.org/wiki/Mutual_information).
+
 ## Selecting the "Best" Token
 
 The rank of best to worst tokens at each time step can follow a number of heuristics. 
 
 As the vocabulary size is typically large, it is computationally too expensive to perform a full search and enumerate all sequence combinations to find the one that maximizes *P(T|S)*. During greedy decoding at each state we simply select the "best" token according to the softmax of each vocabulary term.
 
-An alternatie is beam search, at each time step we keep the top *N* best sequences according to a heuristic (i.e. sum of softmax of tokens), creating a truncated breadth first search. A beam search decoder with a beam size of 1 is a greedy decoder, if the beam width, *N* is of the vocabulary size it is equivalent to searching the whole space.
+An alternative is beam search, at each time step we keep the top *N* best sequences according to a heuristic (i.e. sum of softmax of tokens), creating a truncated breadth first search. A beam search decoder with a beam size of 1 is a greedy decoder, if the beam width, is of the vocabulary size it is equivalent to searching the whole space.
 
 Regardless, at each step we have to order the vocabulary by a ranking method. For a large corpus, there will typically be a overabundance of common replies and phrases and tokens. Using just the decoder output a typical seq2seq model can be biased towards emitting common sequences ('Thank you, You are welcome, I don't know', I am not sure...). 
 
@@ -125,7 +136,7 @@ where sequences that do not appear in the corpus are assigned probability zero (
 
 Here are some results from the revised decoder, showing the top three ranked beam search results,
 
-Source Sequence| Target Sequence | Rank| Decoder 
+Source Sequence| Target Sequence Response| Rank| Decoder 
 ---|--- | --- |---
 'what are you doing today?'|'i m go to be home tomorrow'|1|No Anti-LM
 'what are you doing today?'|'i m go to be home for thanksgiv' | 2 | No Anti-LM
@@ -134,10 +145,10 @@ Source Sequence| Target Sequence | Rank| Decoder
 'what are you doing today?'|'chillin on a spiritu level', |2| *L*=0.4, *y*=1
 'what are you doing today?'|'chillin in the citi'| 3| *L*=0.4, *y*=1
 'what are you doing today?'|'rosemari <unk> hbu'|1|*L*=0.4, *y*=2 
-  'what are you doing today?'|'rosemari <unk> hbu ? ?' |2|*L*=0.4, *y*=2
-  'what are you doing today?'|'rosemari <unk> hbu ? ? ?'|3|*L*=0.4, *y*=2
+'what are you doing today?'|'rosemari <unk> hbu ? ?' |2|*L*=0.4, *y*=2
+'what are you doing today?'|'rosemari <unk> hbu ? ? ?'|3|*L*=0.4, *y*=2
 'what are you doing today?'|'chillin here in nyc'|1|*L*=0.4, *y*=3
- 'what are you doing today?'|'nm but i m just chillin'|2|*L*=0.4, *y*=3
+'what are you doing today?'|'nm but i m just chillin'|2|*L*=0.4, *y*=3
 'what are you doing today?'|'nm but i m go to get some sleep'|3 | *L*=0.4, *y*=3
 
 You can see even with our simple model, the idea works and can return sensible results. Which brings us to the cavaet that there is a need to tune *L* and *y* as hyperparameters. One can see that in this instance, the case *y*=2 produced a strange result. The inference results will also be sensitive to the construction of the n-gram model (see next section).

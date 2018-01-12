@@ -110,7 +110,8 @@ At decoding time we load these precomputed tables into Tensorflow and at each st
 <p align="center">
 <img src="./beam_search_chart.svg">
 </p>
- The figure above shows an example with a beam width of two. At each time step, *t*, the probability of emitting the *n*, vocabulary term, denoted, *y<sub>n</sub><sup>t</sup>* is predicated on the previously emitted tokens, corrected by the the *P(T)* model at each step. The final top two beams at *t=2* is shown in blue.
+
+The figure above shows an example with a beam width of two. At each time step, *t*, the probability of emitting the *n*, vocabulary term, denoted, *y<sub>n</sub><sup>t</sup>* is predicated on the previously emitted tokens and corrected by *P(T)*. Here the correction is only up to the second time step. The final top two beams at *t=2* is shown in blue. Solid lines indicate multiplication in probability, dashed lines indicate division. Thus, P(T) suppress common tokens and magnifies rare tokens.
  
 ## Technical Details
 

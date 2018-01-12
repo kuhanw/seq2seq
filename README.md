@@ -105,12 +105,13 @@ For practical and technical reasons, see equation (12) of [arXiv:1510.03055 [cs.
 
 I was not sure how the authors of the original paper generated the values of P(T) during decoding. As an ansatz, I simply tabulated them from the training corpus. In practice this means building n-gram models out of the corpus where "n" represents the sequence length and inserting these at run-time during decoding. This is what my code does.
 
-At decoding time we load these precomputed tables into Tensorflow and at each step in the beam search we do a look up of each current beam and modify the score (log P(T|S)) for all possible next time steps by their sequence probabilities P(T). The overall effect is then to guide each beam down a "sub-optimal" path that it would otherwise not consider but produce more interesting responses. See the figure below for an example. The beam width is two and the final top two beams are modified by P(T) and highlighted in blue.
+At decoding time we load these precomputed tables into Tensorflow and at each step in the beam search we do a look up of each current beam and modify the score (log P(T|S)) for all possible next time steps by their sequence probabilities P(T). The overall effect is then to guide each beam down a "sub-optimal" path that it would otherwise not consider but produce more interesting responses.
 
 <p align="center">
 <img src="./beam_search_chart.svg">
 </p>
-
+ The figure above shows an example with a beam width of two. At each time step, *t*, the probability of emitting the *n*, vocabulary term, denoted, *y<sub>n</sub><sup>t</sup>* is predicated on the previously emitted tokens, corrected by the the *P(T)* model at each step. The final top two beams at *t=2* is shown in blue.
+ 
 ## Technical Details
 
 In code, we introduce a while loop inside the step function of `tf.contrib.seq2seq.BeamSearchDecoder`, this while loop cycles through each current beam and maps them to counts of all possible next sequence values from the training corpus, `n_grams_tf` ,

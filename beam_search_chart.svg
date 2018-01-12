@@ -91,7 +91,7 @@
 </symbol>
 </g>
 </defs>
-<g id="surface492496">
+<g id="surface499542">
 <rect x="0" y="0" width="339" height="915" style="fill:rgb(100%,100%,100%);fill-opacity:1;stroke:none;"/>
 <path style="fill-rule:evenodd;fill:rgb(100%,100%,100%);fill-opacity:1;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,100%);stroke-opacity:1;stroke-miterlimit:10;" d="M 1.499942 2.000084 L 5.030996 2.000084 L 5.030996 3.470201 L 1.499942 3.470201 Z M 1.499942 2.000084 " transform="matrix(20,0,0,20,-4.061331,328.787386)"/>
 <g style="fill:rgb(0%,0%,0%);fill-opacity:1;">
@@ -678,5 +678,7 @@
 <path style="fill-rule:evenodd;fill:rgb(0%,0%,0%);fill-opacity:1;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 7.094863 -1.612221 L 7.021817 -1.400893 L 6.987637 -1.507338 L 6.881973 -1.543861 Z M 7.094863 -1.612221 " transform="matrix(20,0,0,20,-4.061331,328.787386)"/>
 <path style="fill:none;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-dasharray:0.1,0.1;stroke-miterlimit:10;" d="M 6.986465 -4.009291 L 6.986465 -4.009291 C 5.943887 -2.93644 5.620059 -1.355385 6.156973 0.0409042 " transform="matrix(20,0,0,20,-4.061331,328.787386)"/>
 <path style="fill-rule:evenodd;fill:rgb(0%,0%,0%);fill-opacity:1;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 7.091543 -4.115736 L 7.009512 -3.907729 L 6.98002 -4.015541 L 6.875918 -4.056557 Z M 7.091543 -4.115736 " transform="matrix(20,0,0,20,-4.061331,328.787386)"/>
+<path style="fill:none;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-dasharray:0.1,0.1;stroke-miterlimit:10;" d="M 6.998574 16.364928 L 6.998574 16.364928 C 6.52084 16.694224 6.250723 17.249889 6.287246 17.82899 C 6.323574 18.408287 6.66127 18.92567 7.176699 19.192467 " transform="matrix(20,0,0,20,-4.061331,328.787386)"/>
+<path style="fill-rule:evenodd;fill:rgb(0%,0%,0%);fill-opacity:1;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 7.122207 16.283287 L 6.985098 16.459654 L 6.987051 16.347935 L 6.89877 16.279381 Z M 7.122207 16.283287 " transform="matrix(20,0,0,20,-4.061331,328.787386)"/>
 </g>
 </svg>

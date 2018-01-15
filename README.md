@@ -111,7 +111,7 @@ At decoding time we load these precomputed tables into Tensorflow and at each st
 <img src="./beam_search_chart.svg">
 </p>
 
-The figure above shows an example with a beam width of two. At each time step, *t*, the probability of emitting the *n*, vocabulary term, denoted, *y<sub>n</sub><sup>t</sup>* is predicated on the previously emitted tokens and corrected by *P(T)*. Here the correction is only up to the second time step. The final top two beams at *t=2* is shown in blue. Solid lines indicate multiplication in probability, dashed lines indicate division. Thus, P(T) suppress common tokens and magnifies rare tokens.
+The figure above shows an example with a beam width of two. At each time step, *t*, the probability of emitting the *n*, vocabulary term, denoted, *y<sub>n</sub><sup>t</sup>* is predicated on the previously emitted tokens and corrected by *P(T)*. Here the correction is only up to the second time step. The final top two beams at *t=2* is shown in blue. Solid lines indicate multiplication in probability, dashed lines indicate division. Thus, P(T) suppress common tokens and magnifies rare tokens. In a straight forward beam search, the second beam would have began with *y<sub>1</sub><sup>0</sup>*, second from the top, as opposed to *y<sub>n</sub><sup>0</sup>*.
  
 ## Technical Details
 
